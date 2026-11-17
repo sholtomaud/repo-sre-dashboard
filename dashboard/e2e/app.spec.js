@@ -561,3 +561,75 @@ test('deep links work with a trailing slash, as GitHub Pages serves them', async
     'How the numbers are calculated'
   );
 });
+
+/** A data.csv with the per-class columns the tracker writes. */
+function classCsv(days, perDay, backlog = {}) {
+  const classes = ['security', 'bug', 'other'];
+  const header = [
+    'date',
+    'open',
+    'agent_closed',
+    'human_closed',
+    ...classes.flatMap((c) => [
+      `${c}_opened_by_agents`,
+      `${c}_opened_by_humans`,
+      `${c}_closed_by_agents`,
+      `${c}_closed_by_humans`,
+    ]),
+  ];
+  const lines = [header.join(',')];
+  for (let d = 0; d < days; d++) {
+    const date = new Date(Date.UTC(2026, 9, 1 + d)).toISOString().slice(0, 10);
+    const cells = classes.flatMap((c) =>
+      perDay[c].map((x, i) => x * (d + 1) + (i === 1 ? (backlog[c] ?? 0) : 0))
+    );
+    const opened = classes.reduce(
+      (s, c, k) => s + cells[k * 4] + cells[k * 4 + 1],
+      0
+    );
+    const agents = classes.reduce((s, c, k) => s + cells[k * 4 + 2], 0);
+    const humans = classes.reduce((s, c, k) => s + cells[k * 4 + 3], 0);
+    lines.push(
+      [date, opened - agents - humans, agents, humans, ...cells].join(',')
+    );
+  }
+  return lines.join('\n');
+}
+
+test('the project outlook shows a repository that has lost control', async ({
+  page,
+}) => {
+  // Security issues are filed and never resolved: past the 7-day limit.
+  const body = classCsv(21, {
+    security: [0, 1, 0, 0],
+    bug: [0, 2, 1, 1],
+    other: [0, 1, 0, 1],
+  });
+  await withFixture(page, body, 200, STATUS);
+  await page.goto('/');
+  const outlook = page.locator('outlook-panel');
+  await expect(outlook.locator('[data-index]')).toHaveText('0%', {
+    timeout: 20000,
+  });
+  await expect(outlook.locator('[data-state-label]')).toHaveText(
+    'Control already lost'
+  );
+  await expect(outlook.locator('[data-doom-all]')).toHaveText('Now');
+  const security = outlook.locator('tr[data-class="security"]');
+  await expect(security.locator('td').last()).toHaveText('✕ Over limit');
+  await expect(security.locator('td').nth(4)).toHaveText('7 days');
+  await expect(outlook.locator('tr[data-class="bug"] td').last()).toHaveText(
+    '✓ Within limit'
+  );
+  await expect(outlook.locator('[data-cost]')).toContainText(
+    'set the agent-cost-per-issue'
+  );
+});
+
+test('the outlook waits for data with issue classes', async ({ page }) => {
+  await withFixture(page);
+  await page.goto('/');
+  await expect(page.locator('outlook-panel [data-pending]')).toHaveText(
+    'The outlook appears after the next tracker run, which records each class of issue.'
+  );
+});

@@ -15,8 +15,10 @@ export const QUEUES = ['public', 'agents'] as const;
 export type QueueName = (typeof QUEUES)[number];
 /** Values held per queue, in this order. */
 export const NODES = ['open', 'byAgents', 'byHumans'] as const;
-/** Rate constants per queue, in this order. */
-export const EDGES = ['arrive', 'agents', 'humans'] as const;
+/** Rate constants per queue: new issues filed by people (or by anyone,
+ * when filers are not told apart), new issues filed by agents, and the
+ * shares of the open backlog agents and humans resolve per day. */
+export const EDGES = ['arrive', 'arriveAgents', 'agents', 'humans'] as const;
 
 /** Starting totals for one queue. */
 export interface QueueStart {
@@ -30,11 +32,11 @@ export interface Simulator {
   /** Back to the starting totals. */
   reset(): void;
   /** Sets a rate constant. */
-  setRate(queue: QueueName, edge: (typeof EDGES)[number], k: number): void;
+  setRate(queue: string, edge: (typeof EDGES)[number], k: number): void;
   /** Advances the model by whole days. */
   step(days: number): void;
   /** The current value of a node. */
-  value(queue: QueueName, node: (typeof NODES)[number]): number;
+  value(queue: string, node: (typeof NODES)[number]): number;
   /** Frees the kernel's memory. */
   dispose(): void;
 }
@@ -43,13 +45,17 @@ export interface Simulator {
 const STEPS_PER_DAY = 4;
 
 /** The model as GSSK JSON (schema 4). */
-export function modelJson(start: Record<QueueName, QueueStart>): string {
+export function modelJson(
+  start: Record<string, QueueStart>,
+  names: readonly string[] = QUEUES
+): string {
   const nodes = [];
   const edges = [];
-  for (const queue of QUEUES) {
+  for (const queue of names) {
     const s = start[queue];
     nodes.push(
       { id: `${queue}.filing`, type: 'source', value: 1 },
+      { id: `${queue}.agentFiling`, type: 'source', value: 1 },
       { id: `${queue}.open`, type: 'storage', value: s.open },
       { id: `${queue}.byAgents`, type: 'storage', value: s.byAgents },
       { id: `${queue}.byHumans`, type: 'storage', value: s.byHumans }
@@ -63,6 +69,7 @@ export function modelJson(start: Record<QueueName, QueueStart>): string {
     });
     edges.push(
       edge('arrive', 'filing', 'open'),
+      edge('arriveAgents', 'agentFiling', 'open'),
       edge('agents', 'open', 'byAgents'),
       edge('humans', 'open', 'byHumans')
     );
@@ -90,7 +97,8 @@ export function modelJson(start: Record<QueueName, QueueStart>): string {
 /** A Simulator over a loaded GSSK module. */
 export function gsskSimulator(
   gssk: GSSKModule,
-  start: Record<QueueName, QueueStart>
+  start: Record<string, QueueStart>,
+  names: readonly string[] = QUEUES
 ): Simulator {
   const withString = <T>(text: string, use: (ptr: number) => T): T => {
     const size = gssk.lengthBytesUTF8(text) + 1;
@@ -104,7 +112,7 @@ export function gsskSimulator(
   };
 
   const out = gssk._malloc(4);
-  const status = withString(modelJson(start), (ptr) =>
+  const status = withString(modelJson(start, names), (ptr) =>
     gssk._GSSK_Init(ptr, out)
   );
   const kernel = gssk.HEAPU32[out >> 2];
@@ -118,7 +126,7 @@ export function gsskSimulator(
 
   const nodeIndex = new Map<string, number>();
   const edgeIndex = new Map<string, number>();
-  for (const queue of QUEUES) {
+  for (const queue of names) {
     for (const node of NODES) {
       const id = `${queue}.${node}`;
       nodeIndex.set(
@@ -153,11 +161,20 @@ export function gsskSimulator(
   };
 }
 
-/** Loads the vendored kernel (about 180 KB) and returns a Simulator. */
+let kernel: Promise<GSSKModule> | null = null;
+
+/** The vendored kernel (about 180 KB), loaded once. */
+function loadKernel(): Promise<GSSKModule> {
+  kernel ??= import('../vendor/gssk/gssk.js').then(({ default: createGSSK }) =>
+    createGSSK({ print: () => {}, printErr: () => {} })
+  );
+  return kernel;
+}
+
+/** A Simulator for the given queues, on the shared kernel. */
 export async function loadSimulator(
-  start: Record<QueueName, QueueStart>
+  start: Record<string, QueueStart>,
+  names: readonly string[] = QUEUES
 ): Promise<Simulator> {
-  const { default: createGSSK } = await import('../vendor/gssk/gssk.js');
-  const gssk = await createGSSK({ print: () => {}, printErr: () => {} });
-  return gsskSimulator(gssk, start);
+  return gsskSimulator(await loadKernel(), start, names);
 }

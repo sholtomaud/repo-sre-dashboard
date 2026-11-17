@@ -10,6 +10,7 @@ It answers:
 - **Were closed issues really fixed?** Every closure is checked for a referenced commit, pull request or release; closures without one are shown, not hidden.
 - **How quickly do people get an answer?** Time to first response and time to resolution.
 - **Where is it heading?** A replay of the whole record, then a forecast simulated with [GSSK](https://github.com/energese-project/GSSK-Giannantoni), which stops where it becomes no better than a guess.
+- **Will it stay manageable?** The **project outlook**: a manageability index (the chance of staying in control), the date control would be lost, with and without people's help, when the backlog could be cleared, whether agents are a benefit or a burden, and what it costs. Each class of issue has a limit on how long a new issue may wait: 7 days for security by default, 30 for bugs, 180 for the rest.
 - **How do you get more out of it?** A checklist of repository habits (issue forms, labels, linked fixes, a schedule), each with what was found and how to improve it.
 
 It started as the [Developer Doomsday Clock](https://github.com/sholtomaud/aws-emulator-bug-tracker) for `aws/aws-emulator`.
@@ -64,6 +65,8 @@ Nothing else on the `gh-pages` branch is touched, so it can sit beside an existi
 | `queue-repository` | this repository | Where those folders live. |
 | `queue-name` | `Agents' own queue` | The second queue's name. |
 | `public-weight` | `0.5` | With a second queue, the GitHub issues' weight in the combined clock. |
+| `security-days`, `bug-days`, `feature-days` | `7`, `30`, `180` | How long a new issue of each class may wait before the repository counts as unmanageable. Decimals allowed (`0.5` is 12 hours). |
+| `agent-cost-per-issue`, `human-hourly-rate`, `human-hours-per-issue`, `monthly-budget`, `currency` | none, none, `2`, none, `USD` | Prices for the cost figures. Nothing about cost is shown until at least one price is set. |
 
 The output `url` is the dashboard's address.
 
@@ -71,7 +74,8 @@ The output `url` is the dashboard's address.
 
 - **The dashboard is public** wherever your GitHub Pages site is public. It shows counts and rates, not issue titles or text, but consider that for private repositories.
 - **It reflects your repository's habits.** If issues are not labelled, fixes are not linked, or the workflow has no schedule, the dashboard says so and recommends what to change rather than guess.
-- **Forecasts are simulations**, calibrated on the last week and labelled as such on the page.
+- **Forecasts are simulations**, calibrated on the last week and labelled as such on the page. The outlook back-tests itself on the record and reports how often its past forecasts were right.
+- **Related work.** [burnscope](https://github.com/asklar/burnscope) also forecasts whether an issue backlog converges, and also refuses to give a date when it does not. It runs locally and reports completeness; this Action adds agent attribution, closure verification, per-class limits and a published dashboard.
 
 ## Developing
 

@@ -20,6 +20,13 @@ export type Kind = (typeof KINDS)[number];
 
 export type Closer = 'agent' | 'human';
 
+/**
+ * Classes of issue for the manageability limits, most urgent first. An
+ * issue belongs to the first class it fits.
+ */
+export const CLASSES = ['security', 'bug', 'other'] as const;
+export type IssueClass = (typeof CLASSES)[number];
+
 export interface Issue {
   number: number;
   createdAt: string;
@@ -32,6 +39,10 @@ export interface Issue {
   reopened: boolean | null;
   /** When someone other than the reporter first responded. */
   firstResponseAt: string | null;
+  /** Who filed it. */
+  opener: Closer;
+  /** Security, bug or other: which manageability limit applies. */
+  issueClass: IssueClass;
 }
 
 /** Login fragments that mark an account as automation or an AI agent. */
@@ -108,6 +119,41 @@ export function classifyKind(body: string | null, labels: string[]): Kind {
   if (has(FEATURE_HEADINGS)) return 'feature';
   if (has(BUG_HEADINGS)) return 'behavior';
   return 'other';
+}
+
+const SECURITY_LABELS = [
+  'security',
+  'vulnerability',
+  'cve',
+  'type: security',
+  'kind/security',
+  'security-issue',
+];
+/** A CVE or GitHub security advisory identifier. */
+export const ADVISORY_ID =
+  /\b(?:CVE-\d{4}-\d{4,}|GHSA(?:-[23456789cfghjmpqrvwx]{4}){3})\b/i;
+
+/**
+ * The issue's class: security if it is labelled so or names a CVE or GHSA
+ * advisory; otherwise bug if it is a bug report; otherwise other.
+ */
+export function classifyClass(
+  title: string | null,
+  body: string | null,
+  labels: string[],
+  kind: Kind
+): IssueClass {
+  const names = labels.map((l) => l.toLowerCase());
+  if (
+    names.some(
+      (n) => SECURITY_LABELS.includes(n) || n.startsWith('security')
+    ) ||
+    ADVISORY_ID.test(title ?? '') ||
+    ADVISORY_ID.test(body ?? '')
+  ) {
+    return 'security';
+  }
+  return kind === 'behavior' ? 'bug' : 'other';
 }
 
 /** A commit URL or SHA, or a fix tied to a release version. */
@@ -193,8 +239,8 @@ query($owner: String!, $name: String!, $cursor: String) {
     issues(first: 50, after: $cursor, orderBy: {field: CREATED_AT, direction: ASC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        number createdAt closedAt stateReason body
-        author { login }
+        number title createdAt closedAt stateReason body
+        author { login __typename }
         labels(first: 20) { nodes { name } }
         closedEvents: timelineItems(itemTypes: [CLOSED_EVENT], last: 1) {
           nodes {
@@ -214,11 +260,12 @@ query($owner: String!, $name: String!, $cursor: String) {
 
 interface IssueNode {
   number: number;
+  title?: string | null;
   createdAt: string;
   closedAt: string | null;
   stateReason: string | null;
   body: string | null;
-  author: { login: string } | null;
+  author: { login: string; __typename?: string } | null;
   labels: { nodes: { name: string }[] };
   closedEvents: {
     nodes: ({
@@ -240,6 +287,7 @@ export function toIssue(node: IssueNode, agentLogins: string[] = []): Issue {
   const author = node.author?.login ?? null;
   const labels = node.labels.nodes.map((l) => l.name);
   const isClosed = node.closedAt !== null;
+  const kind = classifyKind(node.body, labels);
   return {
     number: node.number,
     createdAt: node.createdAt,
@@ -262,8 +310,12 @@ export function toIssue(node: IssueNode, agentLogins: string[] = []): Issue {
           }))
         )
       : null,
-    kind: classifyKind(node.body, labels),
+    kind,
     labelled: labels.length > 0,
+    opener: isAgent(author, node.author?.__typename, agentLogins)
+      ? 'agent'
+      : 'human',
+    issueClass: classifyClass(node.title ?? null, node.body, labels, kind),
     reopened: node.reopens.totalCount > 0,
     firstResponseAt: firstResponse(
       author,
@@ -311,6 +363,12 @@ export const CSV_FIELDS = [
   ...EVIDENCE.map((e) => `closed_${e}`),
   'behavior_created',
   'behavior_closed',
+  ...CLASSES.flatMap((c) => [
+    `${c}_opened_by_agents`,
+    `${c}_opened_by_humans`,
+    `${c}_closed_by_agents`,
+    `${c}_closed_by_humans`,
+  ]),
 ] as const;
 
 const day = (timestamp: string) => timestamp.slice(0, 10);
@@ -339,6 +397,22 @@ export function dailyRows(
     };
     for (const e of EVIDENCE) {
       row[`closed_${e}`] = closed.filter((i) => i.evidence === e).length;
+    }
+    for (const c of CLASSES) {
+      const opened = created.filter((i) => i.issueClass === c);
+      const done = closed.filter((i) => i.issueClass === c);
+      row[`${c}_opened_by_agents`] = opened.filter(
+        (i) => i.opener === 'agent'
+      ).length;
+      row[`${c}_opened_by_humans`] = opened.filter(
+        (i) => i.opener === 'human'
+      ).length;
+      row[`${c}_closed_by_agents`] = done.filter(
+        (i) => i.closer === 'agent'
+      ).length;
+      row[`${c}_closed_by_humans`] = done.filter(
+        (i) => i.closer === 'human'
+      ).length;
     }
     rows.push(row as Record<(typeof CSV_FIELDS)[number], string | number>);
   }
@@ -416,5 +490,50 @@ export function issueSummary(issues: Issue[]) {
         issues.filter((i) => i.closedAt && i.evidence === e).length,
       ])
     ),
+  };
+}
+
+/** Manageability limits: how long a new issue may wait, in days, by class. */
+export type Limits = Record<IssueClass, number>;
+
+/** The defaults: 7 days for security, 30 for bugs, 180 for anything else. */
+export const DEFAULT_LIMITS: Limits = { security: 7, bug: 30, other: 180 };
+
+/**
+ * Each class's state now: open issues, the age of the oldest, and how many
+ * are already older than the class's limit.
+ */
+export function classStatus(issues: Issue[], limits: Limits, now: Date) {
+  return Object.fromEntries(
+    CLASSES.map((c) => {
+      const open = issues.filter((i) => !i.closedAt && i.issueClass === c);
+      const ages = open.map(
+        (i) => (now.getTime() - Date.parse(i.createdAt)) / MS_PER_DAY
+      );
+      return [
+        c,
+        {
+          open: open.length,
+          oldest_open_days: ages.length ? Math.max(...ages) : null,
+          over_limit: ages.filter((age) => age > limits[c]).length,
+          limit_days: limits[c],
+        },
+      ];
+    })
+  );
+}
+
+/** What agents have filed and resolved, and how their closures held up. */
+export function agentRecord(issues: Issue[]) {
+  const resolved = issues.filter((i) => i.closedAt && i.closer === 'agent');
+  return {
+    opened: issues.filter((i) => i.opener === 'agent').length,
+    opened_still_open: issues.filter((i) => i.opener === 'agent' && !i.closedAt)
+      .length,
+    resolved: resolved.length,
+    resolved_with_fix: resolved.filter((i) => i.evidence === 'fix_referenced')
+      .length,
+    resolved_reopened: issues.filter((i) => i.closer === 'agent' && i.reopened)
+      .length,
   };
 }

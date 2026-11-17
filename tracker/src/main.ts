@@ -16,6 +16,9 @@ import { writeCsv } from './csv.ts';
 import { createClient, type GitHubClient } from './github.ts';
 import {
   CSV_FIELDS,
+  DEFAULT_LIMITS,
+  agentRecord,
+  classStatus,
   dailyRows,
   fetchIssues,
   issueSummary,
@@ -56,6 +59,36 @@ async function readSchedule(client: GitHubClient): Promise<Schedule> {
   } catch {
     return UNSCHEDULED;
   }
+}
+
+/** A positive number of days from an input, or the default. */
+function days(value: string, fallback: number): number {
+  const n = Number(value);
+  return value !== '' && Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * The cost inputs, or `null` until the user sets them: costs are never
+ * guessed. Agent cost per resolved issue, a human hourly rate and hours per
+ * issue, and a monthly budget, all in the currency the user chooses.
+ */
+function costInputs() {
+  const read = (name: string) => {
+    const n = Number(env(name));
+    return env(name) !== '' && Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  const agentPerIssue = read('SRE_AGENT_COST_PER_ISSUE');
+  const humanHourly = read('SRE_HUMAN_HOURLY_RATE');
+  const humanHours = read('SRE_HUMAN_HOURS_PER_ISSUE');
+  const budget = read('SRE_MONTHLY_BUDGET');
+  if (agentPerIssue === null && humanHourly === null) return null;
+  return {
+    currency: env('SRE_CURRENCY', 'USD'),
+    agent_per_issue: agentPerIssue ?? 0,
+    human_hourly_rate: humanHourly ?? 0,
+    human_hours_per_issue: humanHours ?? 2,
+    monthly_budget: budget,
+  };
 }
 
 /** File names under .github/ISSUE_TEMPLATE, or `null` if there are none. */
@@ -114,6 +147,12 @@ export async function main(now = new Date()): Promise<void> {
   const schedule = await readSchedule(client);
   const summary = issueSummary(issues);
   const weight = Number(env('SRE_PUBLIC_WEIGHT', '0.5'));
+  const limits = {
+    security: days(env('SRE_SECURITY_DAYS'), DEFAULT_LIMITS.security),
+    bug: days(env('SRE_BUG_DAYS'), DEFAULT_LIMITS.bug),
+    other: days(env('SRE_FEATURE_DAYS'), DEFAULT_LIMITS.other),
+  };
+  const cost = costInputs();
   const status = {
     updated_at: now.toISOString().replace(/\.\d+Z$/, 'Z'),
     schedule: {
@@ -130,6 +169,8 @@ export async function main(now = new Date()): Promise<void> {
     },
     issues: summary,
     responses: responseTimes(issues, now),
+    classes: classStatus(issues, limits, now),
+    agents: agentRecord(issues),
     practices: checkPractices({
       issueTemplates: await issueTemplates(client, repository),
       summary,
@@ -154,6 +195,8 @@ export async function main(now = new Date()): Promise<void> {
           resolved_dir: queueResolved,
         }
       : null,
+    limits_days: limits,
+    cost,
     why: env('SRE_WHY_TEXT')
       ? { text: env('SRE_WHY_TEXT'), url: env('SRE_WHY_URL') }
       : null,

@@ -1,4 +1,4 @@
-import{i as e}from"./index-BNdfiT4w.js";var t=`<article class="card practices">
+import{h as e}from"./index-Cze6PZ7Z.js";var t=`<article class="card practices">
   <header class="practices-head">
     <h2>Get more from this dashboard</h2>
     <p>

@@ -172,7 +172,16 @@ test(
             p.id === 'issue-forms' && p.status === 'missing'
         )
       );
+      assert.equal(status.classes.bug.open, 2);
+      assert.equal(status.classes.bug.limit_days, 30);
+      assert.equal(status.agents.resolved, 1);
       const config = JSON.parse(show('dashboard/data/config.json'));
+      assert.deepEqual(config.limits_days, {
+        security: 7,
+        bug: 30,
+        other: 180,
+      });
+      assert.equal(config.cost, null);
       assert.equal(config.repository, 'owner/project');
       assert.equal(config.queue, null);
       const csv = show('dashboard/data/data.csv').trim().split('\n');
@@ -180,6 +189,7 @@ test(
         csv[0],
         /^date,open,agent_closed,human_closed,closed_fix_referenced/
       );
+      assert.match(csv[0], /security_opened_by_agents/);
       assert.match(
         fs.readFileSync(path.join(work, 'output'), 'utf8'),
         /url=https:\/\/owner\.github\.io\/project\/dashboard\//

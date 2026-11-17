@@ -34,8 +34,8 @@ test('the model is valid GSSK JSON with two queues', () => {
       agents: { open: 4, byAgents: 5, byHumans: 6 },
     })
   );
-  assert.equal(model.nodes.length, 8);
-  assert.equal(model.edges.length, 6);
+  assert.equal(model.nodes.length, 10);
+  assert.equal(model.edges.length, 8);
   assert.equal(model.config.method, 'rk4');
 });
 

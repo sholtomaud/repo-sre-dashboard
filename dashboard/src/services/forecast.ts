@@ -35,7 +35,17 @@ export interface RateEvidence {
 
 export interface QueueCalibration {
   start: QueueStart;
+  /** New issues: all of them, or those filed by people when filers are told apart. */
   arrivals: RateEvidence;
+  /** New issues filed by agents, when filers are told apart. */
+  agentArrivals?: RateEvidence;
+  /**
+   * Resolutions per open issue per day, as evidence over open-issue-days.
+   * When given, these replace `agents` and `humans` divided by the open
+   * backlog, so a class with little history can carry a pooled prior.
+   */
+  agentsPerOpen?: RateEvidence;
+  humansPerOpen?: RateEvidence;
   agents: RateEvidence;
   humans: RateEvidence;
   /** Daily log-scale drift of the rates. */
@@ -161,6 +171,8 @@ export type QueueState = Record<Field, number>;
 export interface Ensemble {
   runs: number;
   days: number;
+  /** The queues, in the order stored. */
+  names: readonly string[];
   data: Float32Array;
 }
 
@@ -172,7 +184,7 @@ export function ensembleValue(
   field: number
 ): number {
   return ensemble.data[
-    ((run * ensemble.days + (day - 1)) * QUEUES.length + queue) *
+    ((run * ensemble.days + (day - 1)) * ensemble.names.length + queue) *
       FIELDS.length +
       field
   ];
@@ -182,46 +194,74 @@ export interface EnsembleOptions {
   runs?: number;
   days?: number;
   seed?: number;
+  /** The queues to simulate; the clock's two by default. */
+  names?: readonly string[];
+  /** A counterfactual: no issues filed or resolved by agents. */
+  withoutAgents?: boolean;
 }
 
 /** Runs the model many times, each with its own drawn and drifting rates. */
 export function runEnsemble(
   simulator: Simulator,
-  calibration: Record<QueueName, QueueCalibration>,
-  { runs = 200, days = 365, seed = 1 }: EnsembleOptions = {}
+  calibration: Record<string, QueueCalibration>,
+  {
+    runs = 200,
+    days = 365,
+    seed = 1,
+    names = QUEUES,
+    withoutAgents = false,
+  }: EnsembleOptions = {}
 ): Ensemble {
   const rand = random(seed);
-  const data = new Float32Array(runs * days * QUEUES.length * FIELDS.length);
+  const data = new Float32Array(runs * days * names.length * FIELDS.length);
+  const none = Math.log(1e-12);
   let i = 0;
   for (let run = 0; run < runs; run++) {
     simulator.reset();
     // Each queue's rates on a log scale: new issues per day, and the share
     // of the open backlog agents and humans resolve per day.
-    const logs = QUEUES.map((queue) => {
+    const logs = names.map((queue) => {
       const c = calibration[queue];
       const open = Math.max(c.start.open, 1);
       return [
         Math.log(drawRate(c.arrivals, rand) + 1e-9),
-        Math.log(drawRate(c.agents, rand) / open + 1e-12),
-        Math.log(drawRate(c.humans, rand) / open + 1e-12),
+        Math.log(
+          (c.agentsPerOpen
+            ? drawRate(c.agentsPerOpen, rand)
+            : drawRate(c.agents, rand) / open) + 1e-12
+        ),
+        Math.log(
+          (c.humansPerOpen
+            ? drawRate(c.humansPerOpen, rand)
+            : drawRate(c.humans, rand) / open) + 1e-12
+        ),
+        c.agentArrivals
+          ? Math.log(drawRate(c.agentArrivals, rand) + 1e-9)
+          : none,
       ];
     });
-    let previous = QUEUES.map((queue) => ({
+    let previous = names.map((queue) => ({
       ...calibration[queue].start,
     }));
     for (let day = 1; day <= days; day++) {
-      QUEUES.forEach((queue, q) => {
+      names.forEach((queue, q) => {
         const sigma = calibration[queue].volatility;
         // A drift with no bias up or down in the rate's mean.
-        for (let r = 0; r < 3; r++) {
+        for (let r = 0; r < 4; r++) {
           logs[q][r] += sigma * normal(rand) - (sigma * sigma) / 2;
         }
+        const agentFiling = withoutAgents ? 0 : Math.exp(logs[q][3]);
         simulator.setRate(queue, 'arrive', Math.exp(logs[q][0]));
-        simulator.setRate(queue, 'agents', Math.exp(logs[q][1]));
+        simulator.setRate(queue, 'arriveAgents', agentFiling);
+        simulator.setRate(
+          queue,
+          'agents',
+          withoutAgents ? 0 : Math.exp(logs[q][1])
+        );
         simulator.setRate(queue, 'humans', Math.exp(logs[q][2]));
       });
       simulator.step(1);
-      previous = QUEUES.map((queue, q) => {
+      previous = names.map((queue, q) => {
         const now = {
           open: simulator.value(queue, 'open'),
           byAgents: simulator.value(queue, 'byAgents'),
@@ -230,14 +270,15 @@ export function runEnsemble(
         data[i++] = now.open;
         data[i++] = now.byAgents;
         data[i++] = now.byHumans;
-        data[i++] = Math.exp(logs[q][0]);
+        data[i++] =
+          Math.exp(logs[q][0]) + (withoutAgents ? 0 : Math.exp(logs[q][3]));
         data[i++] = now.byAgents - previous[q].byAgents;
         data[i++] = now.byHumans - previous[q].byHumans;
         return now;
       });
     }
   }
-  return { runs, days, data };
+  return { runs, days, names, data };
 }
 
 /** Percentiles across runs. */

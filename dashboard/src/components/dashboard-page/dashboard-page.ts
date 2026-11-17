@@ -56,6 +56,14 @@ import {
 } from '../../services/combined.ts';
 import '../weight-slider/weight-slider.ts';
 import '../practice-list/practice-list.ts';
+import '../outlook-panel/outlook-panel.ts';
+import type { OutlookPanelComponent } from '../outlook-panel/outlook-panel.ts';
+import {
+  backtest,
+  buildOutlook,
+  parseClassHistory,
+  totalHistory,
+} from '../../services/outlook.ts';
 import type { PracticeListComponent } from '../practice-list/practice-list.ts';
 import {
   formatDuration,
@@ -248,6 +256,8 @@ export class DashboardPageComponent extends BaseComponent {
     );
 
     this.renderHealth(tracker?.raw);
+    // The outlook runs after the page has drawn.
+    window.setTimeout(() => this.renderOutlook(asOf), 80);
 
     // Everything that needs both queues waits for the agents' own queue.
     (this.config?.queue ? loadAgentQueue(asOf) : Promise.resolve(null)).then(
@@ -530,6 +540,37 @@ export class DashboardPageComponent extends BaseComponent {
 
   /** The first day of the public issue record. */
   private publicStart = '';
+
+  /** The project outlook, simulated with GSSK, then the back-test. */
+  private async renderOutlook(asOf: string | undefined) {
+    const panel = this.querySelector<OutlookPanelComponent>('outlook-panel')!;
+    try {
+      const response = await fetch(DATA_CSV_PATH, { cache: 'no-cache' });
+      const classes = response.ok
+        ? parseClassHistory(await response.text())
+        : null;
+      if (!classes) {
+        panel.unavailable(
+          'The outlook appears after the next tracker run, which records each class of issue.'
+        );
+        return;
+      }
+      const points = classes.bug.points;
+      const start = points[points.length - 1].date;
+      const outlook = await buildOutlook(classes, loadSimulator, {
+        limits: this.config?.limits,
+        cost: this.config?.cost ?? null,
+        asOf,
+        seed: Number(start.replaceAll('-', '')),
+      });
+      panel.show(outlook, start, 'pending');
+      const reliability = await backtest(totalHistory(classes), loadSimulator);
+      panel.show(outlook, start, reliability);
+    } catch (error) {
+      console.warn('Outlook unavailable:', error);
+      panel.unavailable('The outlook could not be run in this browser.');
+    }
+  }
 
   /** Response times and the habits checklist. */
   private renderHealth(raw: unknown) {

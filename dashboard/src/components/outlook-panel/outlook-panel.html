@@ -1,0 +1,66 @@
+<article class="card outlook" data-outlook>
+  <header class="outlook-head">
+    <div>
+      <h2>Project outlook</h2>
+      <p>
+        Will this repository stay manageable? Each class of issue has a limit on
+        how long a new issue may wait. Simulated with GSSK from the last week's
+        rates.
+      </p>
+    </div>
+  </header>
+  <p class="outlook-pending" data-pending>Running the simulation…</p>
+  <div class="outlook-body" data-body hidden>
+    <section class="outlook-index">
+      <p class="index-label">Manageability index</p>
+      <p class="index-value tabular" data-index></p>
+      <p class="index-text" data-index-text></p>
+      <p class="index-state" data-state>
+        <span class="state-icon" data-state-icon aria-hidden="true"></span>
+        <span data-state-label></span>
+      </p>
+    </section>
+    <dl class="outlook-cards">
+      <div class="outlook-card">
+        <dt>Loses control</dt>
+        <dd class="card-value" data-doom-all></dd>
+        <dd class="card-note" data-doom-all-note></dd>
+        <dd class="card-curve" data-curve-all></dd>
+      </div>
+      <div class="outlook-card">
+        <dt>With humans alone</dt>
+        <dd class="card-value" data-doom-humans></dd>
+        <dd class="card-note" data-doom-humans-note></dd>
+        <dd class="card-curve" data-curve-humans></dd>
+      </div>
+      <div class="outlook-card">
+        <dt>Backlog cleared</dt>
+        <dd class="card-value" data-completion></dd>
+        <dd class="card-note" data-completion-note></dd>
+      </div>
+      <div class="outlook-card">
+        <dt>Agents</dt>
+        <dd class="card-value" data-agents></dd>
+        <dd class="card-note" data-agents-note></dd>
+      </div>
+    </dl>
+    <table class="outlook-classes">
+      <caption>
+        Each class now
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Class</th>
+          <th scope="col">Open</th>
+          <th scope="col">Resolved a day</th>
+          <th scope="col">Expected wait</th>
+          <th scope="col">Limit</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody data-classes></tbody>
+    </table>
+    <p class="outlook-line" data-cost></p>
+    <p class="outlook-line" data-reliability></p>
+  </div>
+</article>
