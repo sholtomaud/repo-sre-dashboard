@@ -1,0 +1,14 @@
+{
+  "repository": "sholtomaud/repo-sre-dashboard",
+  "repository_url": "https://github.com/sholtomaud/repo-sre-dashboard",
+  "issues_url": "https://github.com/sholtomaud/repo-sre-dashboard/issues",
+  "title": "Developer Doomsday Clock",
+  "queue": null,
+  "limits_days": {
+    "security": 7,
+    "bug": 30,
+    "other": 180
+  },
+  "cost": null,
+  "why": null
+}

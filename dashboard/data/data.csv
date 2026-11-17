@@ -1,0 +1,2 @@
+date,open,agent_closed,human_closed,closed_fix_referenced,closed_no_reference,closed_declined,closed_withdrawn,closed_duplicate,behavior_created,behavior_closed,security_opened_by_agents,security_opened_by_humans,security_closed_by_agents,security_closed_by_humans,bug_opened_by_agents,bug_opened_by_humans,bug_closed_by_agents,bug_closed_by_humans,other_opened_by_agents,other_opened_by_humans,other_closed_by_agents,other_closed_by_humans
+2026-11-17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

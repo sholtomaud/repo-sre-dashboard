@@ -1,0 +1,118 @@
+{
+  "updated_at": "2026-11-17T23:32:03Z",
+  "schedule": {
+    "cron": "17 */6 * * *",
+    "runs_per_day": 4,
+    "interval_hours": 6,
+    "description": "every 6 hours",
+    "run_times_utc": [
+      "00:17",
+      "06:17",
+      "12:17",
+      "18:17"
+    ]
+  },
+  "weighting": {
+    "default_public_weight": 0.5
+  },
+  "issues": {
+    "total": 0,
+    "open": 0,
+    "open_labelled": 0,
+    "labelled": 0,
+    "open_by_kind": {
+      "behavior": 0,
+      "feature": 0,
+      "other": 0
+    },
+    "by_kind": {
+      "behavior": 0,
+      "feature": 0,
+      "other": 0
+    },
+    "ever_closed": 0,
+    "reopened": 0,
+    "closed_by_evidence": {
+      "fix_referenced": 0,
+      "no_reference": 0,
+      "declined": 0,
+      "withdrawn": 0,
+      "duplicate": 0
+    }
+  },
+  "responses": {
+    "windowDays": 30,
+    "firstResponse": {
+      "count": 0,
+      "medianHours": null,
+      "p90Hours": null
+    },
+    "resolution": {
+      "count": 0,
+      "medianHours": null,
+      "p90Hours": null
+    },
+    "awaitingResponse": 0
+  },
+  "classes": {
+    "security": {
+      "open": 0,
+      "oldest_open_days": null,
+      "over_limit": 0,
+      "limit_days": 7
+    },
+    "bug": {
+      "open": 0,
+      "oldest_open_days": null,
+      "over_limit": 0,
+      "limit_days": 30
+    },
+    "other": {
+      "open": 0,
+      "oldest_open_days": null,
+      "over_limit": 0,
+      "limit_days": 180
+    }
+  },
+  "agents": {
+    "opened": 0,
+    "opened_still_open": 0,
+    "resolved": 0,
+    "resolved_with_fix": 0,
+    "resolved_reopened": 0
+  },
+  "practices": [
+    {
+      "id": "issue-forms",
+      "title": "Issue forms",
+      "status": "missing",
+      "evidence": "No issue templates in .github/ISSUE_TEMPLATE",
+      "recommendation": "Add issue forms (YAML) for bug reports and feature requests. Forms keep reports complete, and a labels: entry in each form labels new issues automatically, so the dashboard can tell bugs from requests.",
+      "docs": "https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms"
+    },
+    {
+      "id": "labels",
+      "title": "Issues are labelled",
+      "status": "unknown",
+      "evidence": "Only 0 issues so far",
+      "recommendation": "Label every issue at triage, at least bug or enhancement. Issue forms can add the label for you. Labels let the dashboard separate bugs from feature requests, and incident labels feed the delivery metrics.",
+      "docs": "https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels"
+    },
+    {
+      "id": "linked-fixes",
+      "title": "Closed issues link to their fix",
+      "status": "unknown",
+      "evidence": "Only 0 issues closed as completed so far",
+      "recommendation": "Close issues from the fix: write \"Fixes #123\" in the pull request description or commit message. GitHub then closes the issue when the change merges and records the link, so every closure can be verified.",
+      "docs": "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue"
+    },
+    {
+      "id": "schedule",
+      "title": "The dashboard updates on a schedule",
+      "status": "pass",
+      "evidence": "Runs every 6 hours",
+      "recommendation": "",
+      "docs": "https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule"
+    }
+  ]
+}
