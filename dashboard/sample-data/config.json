@@ -12,5 +12,11 @@
   "why": {
     "text": "AWS says the emulator was built entirely by autonomous AI agents. If agents can do 100% of the development, they should also resolve 100% of the issues.",
     "url": "https://www.aboutamazon.com/news/aws/how-autonomous-ai-agents-built-aws-emulator"
-  }
+  },
+  "limits_days": {
+    "security": 7,
+    "bug": 30,
+    "other": 180
+  },
+  "cost": null
 }

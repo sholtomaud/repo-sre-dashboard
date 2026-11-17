@@ -6,8 +6,12 @@ import path from 'node:path';
 import { createClient } from '../src/github.ts';
 import { describeCron, findCron } from '../src/schedule.ts';
 import {
+  agentRecord,
+  classStatus,
+  classifyClass,
   classifyEvidence,
   classifyKind,
+  DEFAULT_LIMITS,
   dailyRows,
   firstResponse,
   isAgent,
@@ -135,6 +139,8 @@ const issue = (overrides: Partial<Issue>): Issue => ({
   labelled: false,
   reopened: false,
   firstResponseAt: null,
+  opener: 'human',
+  issueClass: 'bug',
   ...overrides,
 });
 
@@ -295,4 +301,89 @@ test('CSV files round-trip', () => {
   writeCsv(file, ['date', 'open'], [{ date: '2026-11-01', open: 3 }]);
   assert.deepEqual(readCsv(file), [{ date: '2026-11-01', open: '3' }]);
   assert.deepEqual(readCsv(file + '.missing'), []);
+});
+
+test('issues are classed for the manageability limits', () => {
+  assert.equal(
+    classifyClass('XSS in login', '', ['security'], 'behavior'),
+    'security'
+  );
+  assert.equal(
+    classifyClass('Bump lodash for CVE-2026-12345', '', [], 'other'),
+    'security'
+  );
+  assert.equal(classifyClass('x', 'See GHSA-xxxx', [], 'behavior'), 'bug');
+  assert.equal(
+    classifyClass('x', 'See GHSA-9wx4-h78v-vm56', [], 'other'),
+    'security'
+  );
+  assert.equal(classifyClass('Crash', '', ['bug'], 'behavior'), 'bug');
+  assert.equal(classifyClass('Dark mode', '', [], 'feature'), 'other');
+});
+
+test('class status flags issues already past their limit', () => {
+  const now = new Date('2026-11-30T00:00:00Z');
+  const status = classStatus(
+    [
+      issue({ createdAt: '2026-11-20T00:00:00Z', issueClass: 'security' }),
+      issue({ createdAt: '2026-11-28T00:00:00Z', issueClass: 'security' }),
+      issue({ createdAt: '2026-11-01T00:00:00Z', issueClass: 'bug' }),
+      issue({
+        createdAt: '2026-11-01T00:00:00Z',
+        issueClass: 'bug',
+        closedAt: '2026-11-02T00:00:00Z',
+      }),
+    ],
+    DEFAULT_LIMITS,
+    now
+  );
+  assert.equal(status.security.open, 2);
+  assert.equal(status.security.oldest_open_days, 10);
+  assert.equal(status.security.over_limit, 1);
+  assert.equal(status.bug.over_limit, 0);
+  assert.equal(status.other.oldest_open_days, null);
+});
+
+test('the agent record counts filings and how closures held', () => {
+  const record = agentRecord([
+    issue({ opener: 'agent' }),
+    issue({
+      opener: 'agent',
+      closedAt: '2026-11-02T00:00:00Z',
+      closer: 'agent',
+      evidence: 'fix_referenced',
+    }),
+    issue({
+      closedAt: '2026-11-02T00:00:00Z',
+      closer: 'agent',
+      evidence: 'no_reference',
+      reopened: true,
+    }),
+  ]);
+  assert.deepEqual(record, {
+    opened: 2,
+    opened_still_open: 1,
+    resolved: 2,
+    resolved_with_fix: 1,
+    resolved_reopened: 1,
+  });
+});
+
+test('daily rows carry per-class totals by who opened and closed', () => {
+  const [row] = dailyRows(
+    [
+      issue({ opener: 'agent', issueClass: 'security' }),
+      issue({
+        issueClass: 'security',
+        closedAt: '2026-11-01T05:00:00Z',
+        closer: 'human',
+        evidence: 'fix_referenced',
+      }),
+    ],
+    '2026-11-01'
+  );
+  assert.equal(row.security_opened_by_agents, 1);
+  assert.equal(row.security_opened_by_humans, 1);
+  assert.equal(row.security_closed_by_humans, 1);
+  assert.equal(row.bug_opened_by_humans, 0);
 });

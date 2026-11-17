@@ -228,6 +228,90 @@
   </section>
 
   <section>
+    <h2>Project outlook</h2>
+    <p>
+      The outlook asks whether the repository stays manageable, and when it
+      would stop being so. Each class of issue has a limit on how long a new
+      issue may wait:
+    </p>
+    <dl>
+      <div>
+        <dt>Security</dt>
+        <dd>
+          <span data-limit="security">7</span> days by default. Issues labelled
+          as security or naming a CVE or GitHub advisory. With AI tools finding
+          and weaponising vulnerabilities quickly, this is set tighter than the
+          two weeks CISA allows US agencies for known exploited vulnerabilities.
+        </dd>
+      </div>
+      <div>
+        <dt>Bugs</dt>
+        <dd>
+          <span data-limit="bug">30</span> days: a common window for
+          high-severity findings.
+        </dd>
+      </div>
+      <div>
+        <dt>Features and other</dt>
+        <dd>
+          <span data-limit="other">180</span> days: a request older than half a
+          year is in effect abandoned.
+        </dd>
+      </div>
+    </dl>
+    <p>
+      The limits are Action inputs. A new issue's expected wait follows Little's
+      law: the open issues in its class divided by the class's resolutions per
+      day. The repository is <strong>unmanageable</strong>
+      once any class's expected wait passes its limit. A class with no issues on
+      record (no security issues yet, say) is not judged.
+    </p>
+    <ul>
+      <li>
+        <strong>The forecast.</strong> GSSK simulates each class, with new
+        issues filed by people and by agents, and resolutions by each. Rates are
+        calibrated on the last week as Bayesian posteriors. Resolution rates are
+        partially pooled: a class with little history starts from the
+        repository's overall rate, and its own record takes over as it grows.
+        150 runs give the chances below.
+      </li>
+      <li>
+        <strong>Manageability index</strong>: the chance of staying manageable
+        up to the forecast horizon, the point where the forecast stops being
+        better than a guess.
+      </li>
+      <li>
+        <strong>Loses control</strong>: the first day the chance of having lost
+        control reaches 50%, with agents and humans, and again counting people's
+        resolutions alone.
+      </li>
+      <li>
+        <strong>Backlog cleared</strong>: when half (and 85%) of the simulations
+        reach an empty backlog. While issues arrive at least as fast as they are
+        resolved, there is no completion date.
+      </li>
+      <li>
+        <strong>Agents</strong>: the same forecast run again without agents
+        filing or resolving. Agents are a benefit if they lower the chance of
+        losing control by at least 5 points, a burden if they raise it as much,
+        and otherwise judged on the backlog they leave.
+      </li>
+      <li>
+        <strong>Cost</strong>, once prices are set as Action inputs: what
+        resolving issues costs a month now, what keeping pace with new issues
+        would cost, and when that would exceed the budget. Without prices the
+        dashboard shows no cost figures.
+      </li>
+      <li>
+        <strong>Reliability</strong>: the model re-run from each past day of the
+        record, checking how often its 7-day forecast of the backlog landed
+        inside its 90% range. Around 90% means the ranges can be trusted; much
+        less means the forecast is overconfident.
+      </li>
+    </ul>
+  </section>
+
+  <section>
     <h2>Indices</h2>
     <dl>
       <div>

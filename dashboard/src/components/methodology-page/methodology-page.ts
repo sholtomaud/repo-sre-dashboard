@@ -38,6 +38,11 @@ export class MethodologyPageComponent extends BaseComponent {
         set('[data-queue-resolved]', config.queue.resolvedDir);
       }
 
+      // The limits this repository's dashboard uses.
+      for (const [name, days] of Object.entries(config.limits)) {
+        const limit = this.querySelector(`[data-limit="${name}"]`);
+        if (limit) limit.textContent = String(days);
+      }
       const why = this.querySelector<HTMLElement>('[data-why]')!;
       why.hidden = !config.why;
       if (config.why) {

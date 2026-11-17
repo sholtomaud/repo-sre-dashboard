@@ -2,6 +2,12 @@
  * What the dashboard shows, from data/config.json, written by the Action's
  * tracker for the repository it runs in.
  */
+import {
+  DEFAULT_LIMITS,
+  type CostConfig,
+  type IssueClass,
+  type Limits,
+} from '../services/outlook.ts';
 
 export interface QueueConfig {
   /** e.g. "Agents' own queue". */
@@ -21,6 +27,10 @@ export interface DashboardConfig {
   queue: QueueConfig | null;
   /** An optional note on why this repository is tracked. */
   why: { text: string; url: string } | null;
+  /** How long a new issue may wait, in days, by class. */
+  limits: Limits;
+  /** Prices for the cost figures, or `null` until the user sets them. */
+  cost: CostConfig | null;
 }
 
 /** The Action itself, linked from the methodology page. */
@@ -35,6 +45,8 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   title: 'Developer Doomsday Clock',
   queue: null,
   why: null,
+  limits: DEFAULT_LIMITS,
+  cost: null,
 };
 
 /** Reads config.json, filling in anything missing. */
@@ -44,6 +56,14 @@ export function parseConfig(value: unknown): DashboardConfig {
     typeof raw[key] === 'string' && raw[key] ? (raw[key] as string) : '';
   const queue = raw.queue as Record<string, unknown> | null | undefined;
   const why = raw.why as Record<string, unknown> | null | undefined;
+  const limits = (raw.limits_days ?? {}) as Record<string, unknown>;
+  const limit = (key: IssueClass) =>
+    typeof limits[key] === 'number' && (limits[key] as number) > 0
+      ? (limits[key] as number)
+      : DEFAULT_LIMITS[key];
+  const cost = raw.cost as Record<string, unknown> | null | undefined;
+  const number = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
   return {
     repository: text('repository') || DEFAULT_CONFIG.repository,
     repositoryUrl: text('repository_url'),
@@ -62,6 +82,23 @@ export function parseConfig(value: unknown): DashboardConfig {
       why && typeof why.text === 'string' && why.text
         ? { text: why.text, url: typeof why.url === 'string' ? why.url : '' }
         : null,
+    limits: {
+      security: limit('security'),
+      bug: limit('bug'),
+      other: limit('other'),
+    },
+    cost: cost
+      ? {
+          currency: typeof cost.currency === 'string' ? cost.currency : 'USD',
+          agentPerIssue: number(cost.agent_per_issue, 0),
+          humanHourlyRate: number(cost.human_hourly_rate, 0),
+          humanHoursPerIssue: number(cost.human_hours_per_issue, 2),
+          monthlyBudget:
+            typeof cost.monthly_budget === 'number'
+              ? cost.monthly_budget
+              : null,
+        }
+      : null,
   };
 }
 

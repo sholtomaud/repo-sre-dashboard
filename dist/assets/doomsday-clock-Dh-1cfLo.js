@@ -1,4 +1,4 @@
-import{i as e}from"./index-BNdfiT4w.js";import{f as t,r as n}from"./metrics-CGSTutjD.js";import{i as r,n as i,r as a,t as o}from"./svg-CRpdUA4t.js";var s=`<figure class="clock">
+import{h as e}from"./index-Cze6PZ7Z.js";import{f as t,r as n}from"./metrics-CGSTutjD.js";import{i as r,n as i,r as a,t as o}from"./svg-CRpdUA4t.js";var s=`<figure class="clock">
   <div class="clock-frame" data-clock role="img"></div>
   <figcaption class="clock-readout">
     <span class="clock-hours tabular" data-hours>—</span>

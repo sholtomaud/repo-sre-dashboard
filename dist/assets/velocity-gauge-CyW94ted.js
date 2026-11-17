@@ -1,4 +1,4 @@
-import{i as e}from"./index-BNdfiT4w.js";import{u as t}from"./metrics-CGSTutjD.js";import{i as n,o as r}from"./format-Cx1wN9EF.js";import{i,n as a,r as o,t as s}from"./svg-CRpdUA4t.js";var c=`<figure class="gauge">
+import{h as e}from"./index-Cze6PZ7Z.js";import{u as t}from"./metrics-CGSTutjD.js";import{i as n,o as r}from"./format-Cx1wN9EF.js";import{i,n as a,r as o,t as s}from"./svg-CRpdUA4t.js";var c=`<figure class="gauge">
   <h3 class="gauge-heading" data-heading hidden></h3>
   <div class="gauge-frame" data-gauge role="img"></div>
   <figcaption>

@@ -1,4 +1,4 @@
-import{i as e,n as t,r as n,t as r}from"./index-BNdfiT4w.js";import{c as i}from"./metrics-CGSTutjD.js";var a=`<main class="doc">
+import{h as e,n as t,r as n,t as r}from"./index-Cze6PZ7Z.js";import{c as i}from"./metrics-CGSTutjD.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -225,6 +225,90 @@ import{i as e,n as t,r as n,t as r}from"./index-BNdfiT4w.js";import{c as i}from"
       is an assumption, the simplest that fits a queue whose backlog the agents
       fill themselves.
     </p>
+  </section>
+
+  <section>
+    <h2>Project outlook</h2>
+    <p>
+      The outlook asks whether the repository stays manageable, and when it
+      would stop being so. Each class of issue has a limit on how long a new
+      issue may wait:
+    </p>
+    <dl>
+      <div>
+        <dt>Security</dt>
+        <dd>
+          <span data-limit="security">7</span> days by default. Issues labelled
+          as security or naming a CVE or GitHub advisory. With AI tools finding
+          and weaponising vulnerabilities quickly, this is set tighter than the
+          two weeks CISA allows US agencies for known exploited vulnerabilities.
+        </dd>
+      </div>
+      <div>
+        <dt>Bugs</dt>
+        <dd>
+          <span data-limit="bug">30</span> days: a common window for
+          high-severity findings.
+        </dd>
+      </div>
+      <div>
+        <dt>Features and other</dt>
+        <dd>
+          <span data-limit="other">180</span> days: a request older than half a
+          year is in effect abandoned.
+        </dd>
+      </div>
+    </dl>
+    <p>
+      The limits are Action inputs. A new issue's expected wait follows Little's
+      law: the open issues in its class divided by the class's resolutions per
+      day. The repository is <strong>unmanageable</strong>
+      once any class's expected wait passes its limit. A class with no issues on
+      record (no security issues yet, say) is not judged.
+    </p>
+    <ul>
+      <li>
+        <strong>The forecast.</strong> GSSK simulates each class, with new
+        issues filed by people and by agents, and resolutions by each. Rates are
+        calibrated on the last week as Bayesian posteriors. Resolution rates are
+        partially pooled: a class with little history starts from the
+        repository's overall rate, and its own record takes over as it grows.
+        150 runs give the chances below.
+      </li>
+      <li>
+        <strong>Manageability index</strong>: the chance of staying manageable
+        up to the forecast horizon, the point where the forecast stops being
+        better than a guess.
+      </li>
+      <li>
+        <strong>Loses control</strong>: the first day the chance of having lost
+        control reaches 50%, with agents and humans, and again counting people's
+        resolutions alone.
+      </li>
+      <li>
+        <strong>Backlog cleared</strong>: when half (and 85%) of the simulations
+        reach an empty backlog. While issues arrive at least as fast as they are
+        resolved, there is no completion date.
+      </li>
+      <li>
+        <strong>Agents</strong>: the same forecast run again without agents
+        filing or resolving. Agents are a benefit if they lower the chance of
+        losing control by at least 5 points, a burden if they raise it as much,
+        and otherwise judged on the backlog they leave.
+      </li>
+      <li>
+        <strong>Cost</strong>, once prices are set as Action inputs: what
+        resolving issues costs a month now, what keeping pace with new issues
+        would cost, and when that would exceed the budget. Without prices the
+        dashboard shows no cost figures.
+      </li>
+      <li>
+        <strong>Reliability</strong>: the model re-run from each past day of the
+        record, checking how often its 7-day forecast of the backlog landed
+        inside its 90% range. Around 90% means the ranges can be trusted; much
+        less means the forecast is overconfident.
+      </li>
+    </ul>
   </section>
 
   <section>
@@ -581,4 +665,4 @@ import{i as e,n as t,r as n,t as r}from"./index-BNdfiT4w.js";import{c as i}from"
 :host .why p + p {
   margin-top: 0.75rem;
 }
-`,s=class extends e{static tagName=`methodology-page`;constructor(){super(a,o)}init(){this.querySelector(`[data-csv-link]`).href=r,this.querySelector(`[data-project-link]`).href=t,n().then(e=>{let t=this.querySelector(`[data-tracked-link]`);if(t.href=e.issuesUrl||e.repositoryUrl,t.textContent=e.repository,this.querySelectorAll(`[data-queue-only]`).forEach(t=>t.hidden=!e.queue),e.queue){let t=(e,t)=>{this.querySelector(e).textContent=t};t(`[data-queue-repository]`,e.queue.repository),t(`[data-queue-open]`,e.queue.openDir),t(`[data-queue-resolved]`,e.queue.resolvedDir)}let n=this.querySelector(`[data-why]`);if(n.hidden=!e.why,e.why){this.querySelector(`[data-why-text]`).textContent=e.why.text;let t=this.querySelector(`[data-why-source]`);t.hidden=!e.why.url,this.querySelector(`[data-why-link]`).href=e.why.url}}),i().then(e=>{if(!e)return;let{description:t,runTimesUtc:n}=e.schedule;this.querySelector(`[data-schedule]`).textContent=n.length?`${t} (${n.join(`, `)} UTC)`:t})}};customElements.get(s.tagName)||customElements.define(s.tagName,s);export{s as MethodologyPageComponent};
+`,s=class extends e{static tagName=`methodology-page`;constructor(){super(a,o)}init(){this.querySelector(`[data-csv-link]`).href=r,this.querySelector(`[data-project-link]`).href=t,n().then(e=>{let t=this.querySelector(`[data-tracked-link]`);if(t.href=e.issuesUrl||e.repositoryUrl,t.textContent=e.repository,this.querySelectorAll(`[data-queue-only]`).forEach(t=>t.hidden=!e.queue),e.queue){let t=(e,t)=>{this.querySelector(e).textContent=t};t(`[data-queue-repository]`,e.queue.repository),t(`[data-queue-open]`,e.queue.openDir),t(`[data-queue-resolved]`,e.queue.resolvedDir)}for(let[t,n]of Object.entries(e.limits)){let e=this.querySelector(`[data-limit="${t}"]`);e&&(e.textContent=String(n))}let n=this.querySelector(`[data-why]`);if(n.hidden=!e.why,e.why){this.querySelector(`[data-why-text]`).textContent=e.why.text;let t=this.querySelector(`[data-why-source]`);t.hidden=!e.why.url,this.querySelector(`[data-why-link]`).href=e.why.url}}),i().then(e=>{if(!e)return;let{description:t,runTimesUtc:n}=e.schedule;this.querySelector(`[data-schedule]`).textContent=n.length?`${t} (${n.join(`, `)} UTC)`:t})}};customElements.get(s.tagName)||customElements.define(s.tagName,s);export{s as MethodologyPageComponent};

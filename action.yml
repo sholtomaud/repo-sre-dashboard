@@ -40,6 +40,30 @@ inputs:
   public-weight:
     description: With a file-based queue, the GitHub issues' weight (0 to 1) in the combined clock. The default gives each queue equal weight.
     default: '0.5'
+  security-days:
+    description: Manageability limit for security issues, in days (decimals allowed, e.g. 0.5 for 12 hours). A repository is unmanageable once a new issue of any class would wait longer than its limit.
+    default: '7'
+  bug-days:
+    description: Manageability limit for bug reports, in days.
+    default: '30'
+  feature-days:
+    description: Manageability limit for feature requests and other issues, in days.
+    default: '180'
+  agent-cost-per-issue:
+    description: Optional. What an AI agent costs per issue it resolves. Cost figures appear only once this or human-hourly-rate is set.
+    default: ''
+  human-hourly-rate:
+    description: Optional. What an hour of a person's time costs.
+    default: ''
+  human-hours-per-issue:
+    description: Optional. Hours a person spends per resolved issue.
+    default: '2'
+  monthly-budget:
+    description: Optional. Monthly budget for resolving issues; the dashboard forecasts when keeping pace would exceed it.
+    default: ''
+  currency:
+    description: Currency code for the cost figures.
+    default: USD
   why:
     description: Optional note on why this repository is tracked, shown on the methodology page.
     default: ''
@@ -79,6 +103,14 @@ runs:
         SRE_QUEUE_RESOLVED_DIR: ${{ inputs.queue-resolved-dir }}
         SRE_QUEUE_NAME: ${{ inputs.queue-name }}
         SRE_PUBLIC_WEIGHT: ${{ inputs.public-weight }}
+        SRE_SECURITY_DAYS: ${{ inputs.security-days }}
+        SRE_BUG_DAYS: ${{ inputs.bug-days }}
+        SRE_FEATURE_DAYS: ${{ inputs.feature-days }}
+        SRE_AGENT_COST_PER_ISSUE: ${{ inputs.agent-cost-per-issue }}
+        SRE_HUMAN_HOURLY_RATE: ${{ inputs.human-hourly-rate }}
+        SRE_HUMAN_HOURS_PER_ISSUE: ${{ inputs.human-hours-per-issue }}
+        SRE_MONTHLY_BUDGET: ${{ inputs.monthly-budget }}
+        SRE_CURRENCY: ${{ inputs.currency }}
         SRE_WHY_TEXT: ${{ inputs.why }}
         SRE_WHY_URL: ${{ inputs.why-url }}
       run: node "$GITHUB_ACTION_PATH/tracker/src/main.ts"
