@@ -1,4 +1,4 @@
-import{h as e}from"./index-Cze6PZ7Z.js";import{n as t}from"./format-Cx1wN9EF.js";var n=`<div class="replay" data-replay hidden>
+import{h as e}from"./index-DMsLPmzK.js";import{n as t}from"./format-Cx1wN9EF.js";var n=`<div class="replay" data-replay hidden>
   <button type="button" class="replay-button" data-play>
     <span class="replay-icon" data-icon aria-hidden="true">▶</span>
     <span data-play-label>Replay the record</span>

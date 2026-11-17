@@ -1,4 +1,4 @@
-import{h as e,n as t,r as n,t as r}from"./index-Cze6PZ7Z.js";import{c as i}from"./metrics-CGSTutjD.js";var a=`<main class="doc">
+import{h as e,n as t,r as n,t as r}from"./index-DMsLPmzK.js";import{c as i}from"./metrics-CGSTutjD.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -224,6 +224,33 @@ import{h as e,n as t,r as n,t as r}from"./index-Cze6PZ7Z.js";import{c as i}from"
       releases or new agents. Agents resolving each day a share of what is open
       is an assumption, the simplest that fits a queue whose backlog the agents
       fill themselves.
+    </p>
+  </section>
+
+  <section>
+    <h2>Pull requests</h2>
+    <p>
+      Most agent work arrives as pull requests, often through a person's
+      account. Each pull request is attributed to one of three origins:
+    </p>
+    <ul>
+      <li>
+        <strong>AI agent</strong>: opened by an agent's account, such as
+        Copilot's, or a login listed in the <code>agent-logins</code> input.
+      </li>
+      <li>
+        <strong>Person with an agent</strong>: opened by a person, with an agent
+        named in a commit's <code>Co-Authored-By</code> trailer or in a
+        signature in the description ("Generated with Claude Code").
+      </li>
+      <li><strong>Person</strong>: neither.</li>
+    </ul>
+    <p>
+      Dependency and CI bots (Dependabot, Renovate and the like) are left out:
+      they are automation, not agents writing code. Agents working through a
+      person's account with no trailer or signature are counted as people, so
+      the agent figures are a lower bound. Merge rate is merged pull requests
+      over those merged or closed; time to merge is the median from opening.
     </p>
   </section>
 

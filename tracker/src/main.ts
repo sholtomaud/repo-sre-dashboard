@@ -25,6 +25,7 @@ import {
   responseTimes,
 } from './issues.ts';
 import { checkPractices } from './practices.ts';
+import { PULL_FIELDS, fetchPulls, pullRows, pullSummary } from './pulls.ts';
 import { updateQueue } from './queue.ts';
 import {
   UNSCHEDULED,
@@ -122,6 +123,15 @@ export async function main(now = new Date()): Promise<void> {
   writeCsv(path.join(out, 'data.csv'), CSV_FIELDS, dailyRows(issues, today));
   console.log(`Issues: ${issues.length}`);
 
+  const pulls = await fetchPulls(
+    client,
+    repository,
+    list(env('SRE_AGENT_LOGINS'))
+  );
+  writeCsv(path.join(out, 'pulls.csv'), PULL_FIELDS, pullRows(pulls, today));
+  const pullStats = pullSummary(pulls, now);
+  console.log(`Pull requests: ${pulls.length}`);
+
   const queueOpen = env('SRE_QUEUE_OPEN_DIR');
   const queueResolved = env('SRE_QUEUE_RESOLVED_DIR');
   let queue = null;
@@ -171,10 +181,12 @@ export async function main(now = new Date()): Promise<void> {
     responses: responseTimes(issues, now),
     classes: classStatus(issues, limits, now),
     agents: agentRecord(issues),
+    pulls: pullStats,
     practices: checkPractices({
       issueTemplates: await issueTemplates(client, repository),
       summary,
       schedule,
+      pulls: pullStats,
     }),
   };
   fs.writeFileSync(

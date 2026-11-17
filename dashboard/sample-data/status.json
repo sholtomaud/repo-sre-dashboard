@@ -74,5 +74,40 @@
       "recommendation": "",
       "docs": "https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule"
     }
-  ]
+  ],
+  "pulls": {
+    "window_days": 30,
+    "total": 58,
+    "by_origin": {
+      "agent": {
+        "opened": 18,
+        "merged": 11,
+        "closed_unmerged": 5,
+        "still_open": 2,
+        "merge_rate": 0.6875,
+        "median_hours_to_merge": 6.5
+      },
+      "assisted": {
+        "opened": 14,
+        "merged": 12,
+        "closed_unmerged": 1,
+        "still_open": 1,
+        "merge_rate": 0.923,
+        "median_hours_to_merge": 20
+      },
+      "human": {
+        "opened": 26,
+        "merged": 21,
+        "closed_unmerged": 2,
+        "still_open": 3,
+        "merge_rate": 0.913,
+        "median_hours_to_merge": 30
+      }
+    },
+    "agents": {
+      "Copilot": 18,
+      "Claude": 10,
+      "Cursor": 4
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import{h as e,i as t}from"./index-Cze6PZ7Z.js";import{n,o as r,t as i}from"./format-Cx1wN9EF.js";import{i as a}from"./svg-CRpdUA4t.js";var o=`<article class="card outlook" data-outlook>
+import{h as e,i as t}from"./index-DMsLPmzK.js";import{n,o as r,t as i}from"./format-Cx1wN9EF.js";import{i as a}from"./svg-CRpdUA4t.js";var o=`<article class="card outlook" data-outlook>
   <header class="outlook-head">
     <div>
       <h2>Project outlook</h2>

@@ -1,4 +1,4 @@
-import{h as e}from"./index-Cze6PZ7Z.js";import{i as t,o as n,t as r}from"./format-Cx1wN9EF.js";var i=`<article class="card queues">
+import{h as e}from"./index-DMsLPmzK.js";import{i as t,o as n,t as r}from"./format-Cx1wN9EF.js";var i=`<article class="card queues">
   <header class="queues-head">
     <h2>Where the agents work</h2>
     <p>

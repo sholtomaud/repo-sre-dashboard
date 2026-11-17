@@ -52,20 +52,48 @@ function startApi(): Promise<http.Server> {
       res.end(JSON.stringify(body));
     };
     if (req.url === '/graphql') {
-      return send(200, {
-        data: {
-          repository: {
-            issues: {
-              pageInfo: { hasNextPage: false, endCursor: 'x' },
-              nodes: [
-                issueNode(1, true),
-                issueNode(2, false),
-                issueNode(3, false),
-              ],
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        if (body.includes('pullRequests')) {
+          send(200, {
+            data: {
+              repository: {
+                pullRequests: {
+                  pageInfo: { hasNextPage: false, endCursor: 'x' },
+                  nodes: [
+                    {
+                      number: 10,
+                      createdAt: '2026-11-02T00:00:00Z',
+                      mergedAt: '2026-11-02T05:00:00Z',
+                      closedAt: '2026-11-02T05:00:00Z',
+                      body: 'Generated with Claude Code',
+                      author: { login: 'maintainer', __typename: 'User' },
+                      commits: { nodes: [{ commit: { message: 'Fix' } }] },
+                    },
+                  ],
+                },
+              },
+            },
+          });
+          return;
+        }
+        send(200, {
+          data: {
+            repository: {
+              issues: {
+                pageInfo: { hasNextPage: false, endCursor: 'x' },
+                nodes: [
+                  issueNode(1, true),
+                  issueNode(2, false),
+                  issueNode(3, false),
+                ],
+              },
             },
           },
-        },
+        });
       });
+      return;
     }
     if (
       req.url?.startsWith(
@@ -175,6 +203,11 @@ test(
       assert.equal(status.classes.bug.open, 2);
       assert.equal(status.classes.bug.limit_days, 30);
       assert.equal(status.agents.resolved, 1);
+      assert.equal(status.pulls.total, 1);
+      assert.equal(status.pulls.by_origin.assisted.opened, 1);
+      assert.ok(
+        show('dashboard/data/pulls.csv').startsWith('date,agent_opened')
+      );
       const config = JSON.parse(show('dashboard/data/config.json'));
       assert.deepEqual(config.limits_days, {
         security: 7,
