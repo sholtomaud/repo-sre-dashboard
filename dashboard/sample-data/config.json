@@ -1,0 +1,16 @@
+{
+  "repository": "aws/aws-emulator",
+  "repository_url": "https://github.com/aws/aws-emulator",
+  "issues_url": "https://github.com/aws/aws-emulator/issues",
+  "title": "Developer Doomsday Clock",
+  "queue": {
+    "name": "Agents' own queue",
+    "repository": "aws/aws-emulator",
+    "open_dir": "issues/things-that-do-not-work",
+    "resolved_dir": "issues/things-that-now-work"
+  },
+  "why": {
+    "text": "AWS says the emulator was built entirely by autonomous AI agents. If agents can do 100% of the development, they should also resolve 100% of the issues.",
+    "url": "https://www.aboutamazon.com/news/aws/how-autonomous-ai-agents-built-aws-emulator"
+  }
+}

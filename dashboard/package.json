@@ -1,0 +1,38 @@
+{
+  "name": "repo-sre-dashboard-site",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/main.ts",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "start": "npm run dev",
+    "predev": "node scripts/sync-data.ts",
+    "dev": "vite --host",
+    "prebuild": "node scripts/sync-data.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "boba": "node scripts/boba.ts",
+    "test": "node --test \"{src,scripts}/**/*.test.ts\"",
+    "typecheck": "tsc -p .",
+    "lint": "oxlint && prettier --check \"{src,scripts,e2e}/**/*.{ts,js}\"",
+    "format": "prettier --write \"{src,scripts,e2e}/**/*.{ts,js}\"",
+    "e2e": "playwright test",
+    "build:action": "node scripts/build-action.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/node": "^26.1.1",
+    "oxlint": "^1.89.0",
+    "postcss": "^8.5.25",
+    "prettier": "^3.9.10",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.6"
+  },
+  "license": "MIT",
+  "private": true,
+  "description": "The dashboard site the Repo SRE Dashboard Action publishes"
+}

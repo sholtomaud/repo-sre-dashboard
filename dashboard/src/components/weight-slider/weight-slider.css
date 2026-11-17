@@ -1,0 +1,113 @@
+:host {
+  display: block;
+}
+:host .weighting {
+  padding: 1.125rem 1.25rem;
+}
+@media (min-width: 640px) {
+  :host .weighting {
+    padding: 1.25rem 1.75rem;
+  }
+}
+:host .weighting-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+}
+:host h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+:host .weighting-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+:host .weighting-head .weighting-readout {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+:host .weighting-control {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 1rem;
+}
+:host .weighting-end {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+@media (max-width: 560px) {
+  :host .weighting-end {
+    display: none;
+  }
+  :host .weighting-control {
+    grid-template-columns: 1fr;
+  }
+}
+:host .weighting-track {
+  position: relative;
+  padding-bottom: 0.625rem;
+}
+:host input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+/* Ticks sit under the track, inset by half the thumb's width. */
+:host .weighting-ticks {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 8px;
+}
+:host .weighting-ticks span {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 8px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--axis);
+}
+:host .weighting-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+}
+:host .weighting-marks button {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+:host .weighting-marks button:hover {
+  background: var(--surface-2);
+}
+:host .weighting-marks button[aria-pressed='true'] {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+:host .weighting-marks .mark-value {
+  margin-left: 0.25rem;
+  color: var(--ink-muted);
+  font-weight: 400;
+}

@@ -1,0 +1,22 @@
+<div class="replay" data-replay hidden>
+  <button type="button" class="replay-button" data-play>
+    <span class="replay-icon" data-icon aria-hidden="true">▶</span>
+    <span data-play-label>Replay the record</span>
+  </button>
+  <div class="replay-track">
+    <input
+      type="range"
+      class="replay-scrubber"
+      min="0"
+      max="1"
+      step="0.01"
+      value="1"
+      data-scrubber
+      aria-label="Position in the record and forecast"
+    />
+    <span class="replay-today" data-today aria-hidden="true" hidden>
+      <span>Today</span>
+    </span>
+  </div>
+  <span class="replay-date tabular" data-date aria-live="off">Live</span>
+</div>

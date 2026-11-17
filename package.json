@@ -1,0 +1,20 @@
+{
+  "name": "repo-sre-dashboard",
+  "private": true,
+  "type": "module",
+  "description": "A GitHub Action that publishes a reliability dashboard for a repository to GitHub Pages",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "node --test tracker/test/*.test.ts",
+    "typecheck": "tsc -p tracker",
+    "lint": "prettier --check tracker action.yml"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0"
+  },
+  "license": "MIT"
+}

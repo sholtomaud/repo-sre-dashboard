@@ -1,0 +1,86 @@
+:host {
+  display: block;
+}
+:host .doc {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3rem 1rem 4rem;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+:host h1 {
+  margin: 0.5rem 0 1rem;
+  font-size: clamp(1.875rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+:host h2 {
+  margin: 2.25rem 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+:host .lede {
+  font-size: 1.0625rem;
+}
+:host a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:host code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+:host ul {
+  padding-left: 1.25rem;
+}
+:host li + li {
+  margin-top: 0.25rem;
+}
+:host dl div {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--grid);
+}
+:host dd {
+  margin: 0;
+}
+:host .formula {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  text-align: center;
+}
+:host .back {
+  display: inline-block;
+  margin-top: 2rem;
+  font-weight: 600;
+}
+:host .why {
+  margin: 1.5rem 0 2rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--series-1);
+  border-radius: 12px;
+  background: var(--surface);
+}
+:host .why h2 {
+  margin-top: 0;
+}
+:host .why p:last-child {
+  margin-bottom: 0;
+}
+:host .why p + p {
+  margin-top: 0.75rem;
+}
