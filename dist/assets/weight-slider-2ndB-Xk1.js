@@ -1,4 +1,4 @@
-import{h as e}from"./index-Cze6PZ7Z.js";var t=`<section class="card weighting" aria-labelledby="weighting-title">
+import{h as e}from"./index-DMsLPmzK.js";var t=`<section class="card weighting" aria-labelledby="weighting-title">
   <div class="weighting-head">
     <div>
       <h2 id="weighting-title">How the two queues are combined</h2>

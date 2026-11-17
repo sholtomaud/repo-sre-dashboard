@@ -5,6 +5,7 @@
  */
 import type { issueSummary } from './issues.ts';
 import type { Schedule } from './schedule.ts';
+import type { pullSummary } from './pulls.ts';
 
 export type PracticeStatus = 'pass' | 'improve' | 'missing' | 'unknown';
 
@@ -36,13 +37,21 @@ export interface PracticeInputs {
   issueTemplates: string[] | null;
   summary: ReturnType<typeof issueSummary>;
   schedule: Schedule;
+  pulls?: ReturnType<typeof pullSummary>;
 }
 
 export function checkPractices({
   issueTemplates,
   summary,
   schedule,
+  pulls,
 }: PracticeInputs): Practice[] {
+  const recent = pulls
+    ? Object.values(pulls.by_origin).reduce((s, o) => s + o.opened, 0)
+    : 0;
+  const agentWork = pulls
+    ? pulls.by_origin.agent.opened + pulls.by_origin.assisted.opened
+    : 0;
   const forms = (issueTemplates ?? []).filter(
     (f) => /\.ya?ml$/i.test(f) && !/^config\.ya?ml$/i.test(f)
   );
@@ -89,6 +98,20 @@ export function checkPractices({
       recommendation:
         'Close issues from the fix: write "Fixes #123" in the pull request description or commit message. GitHub then closes the issue when the change merges and records the link, so every closure can be verified.',
       docs: 'https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue',
+    },
+    {
+      id: 'agent-attribution',
+      title: 'Agent work is attributed',
+      status: recent < 5 ? 'unknown' : agentWork > 0 ? 'pass' : 'unknown',
+      evidence:
+        recent < 5
+          ? `Only ${recent} pull requests in the last ${pulls?.window_days ?? 30} days`
+          : agentWork > 0
+            ? `${agentWork} of ${recent} pull requests in the last ${pulls!.window_days} days show an agent's work`
+            : `None of ${recent} pull requests in the last ${pulls!.window_days} days names an agent`,
+      recommendation:
+        "If people use coding agents through their own accounts, record it: keep the agent's Co-Authored-By trailer on commits (Claude Code, Copilot and Cursor can add one) or its signature in the pull request description. Otherwise agent work is counted as human.",
+      docs: 'https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/creating-a-commit-with-multiple-authors',
     },
     {
       id: 'schedule',

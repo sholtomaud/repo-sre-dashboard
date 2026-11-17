@@ -1,4 +1,4 @@
-import{h as e}from"./index-Cze6PZ7Z.js";import{i as t,n,t as r}from"./format-Cx1wN9EF.js";import{i}from"./svg-CRpdUA4t.js";var a=`<section class="loop" data-loop data-level="unknown" data-region>
+import{h as e}from"./index-DMsLPmzK.js";import{i as t,n,t as r}from"./format-Cx1wN9EF.js";import{i}from"./svg-CRpdUA4t.js";var a=`<section class="loop" data-loop data-level="unknown" data-region>
   <div class="loop-readout">
     <p class="loop-eyebrow">Bug doom loop</p>
     <p class="loop-queue" data-queue hidden></p>

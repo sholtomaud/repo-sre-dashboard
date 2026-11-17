@@ -57,6 +57,8 @@ import {
 import '../weight-slider/weight-slider.ts';
 import '../practice-list/practice-list.ts';
 import '../outlook-panel/outlook-panel.ts';
+import '../pull-panel/pull-panel.ts';
+import type { PullPanelComponent } from '../pull-panel/pull-panel.ts';
 import type { OutlookPanelComponent } from '../outlook-panel/outlook-panel.ts';
 import {
   backtest,
@@ -68,6 +70,7 @@ import type { PracticeListComponent } from '../practice-list/practice-list.ts';
 import {
   formatDuration,
   parsePractices,
+  parsePulls,
   parseResponses,
 } from '../../services/health.ts';
 import '../replay-control/replay-control.ts';
@@ -602,6 +605,8 @@ export class DashboardPageComponent extends BaseComponent {
     }
     this.querySelector<PracticeListComponent>('practice-list')!.practices =
       parsePractices(raw);
+    this.querySelector<PullPanelComponent>('pull-panel')!.pulls =
+      parsePulls(raw);
   }
 
   /** The agents' own queue over time. */

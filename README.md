@@ -7,6 +7,7 @@ It answers:
 - **Who resolves your issues?** The **Developer Doomsday Clock** reads 00:00 when people resolve everything and 24:00 (midnight) when AI agents do. Agents are recognised by account type and login: Copilot, Claude, Codex, Devin, any `[bot]`, and any logins you add.
 - **How fast?** A velocity dial: issues resolved per day by agents and by humans, against new issues per day, and whether you are ahead or behind.
 - **Is the backlog growing?** The **bug doom loop**: issues opened per issue closed, overall and for bug reports alone.
+- **Who writes the changes?** Pull requests by an AI agent's account, by a person working with an agent (a `Co-Authored-By` trailer or a "Generated with" signature), or by a person alone: the share of merged work agents had a hand in, merge rates and time to merge. Dependency and CI bots are left out.
 - **Were closed issues really fixed?** Every closure is checked for a referenced commit, pull request or release; closures without one are shown, not hidden.
 - **How quickly do people get an answer?** Time to first response and time to resolution.
 - **Where is it heading?** A replay of the whole record, then a forecast simulated with [GSSK](https://github.com/energese-project/GSSK-Giannantoni), which stops where it becomes no better than a guess.
@@ -46,7 +47,7 @@ The dashboard is then at `https://<owner>.github.io/<repository>/dashboard/`. Th
 Each run:
 
 1. checks out the `gh-pages` branch (or starts it);
-2. reads the repository's issues through the GitHub API with the workflow's own token, and writes the dashboard's data (`data.csv`, `status.json`, `config.json`) under `dashboard/data/`;
+2. reads the repository's issues and pull requests through the GitHub API with the workflow's own token, and writes the dashboard's data (`data.csv`, `pulls.csv`, `status.json`, `config.json`) under `dashboard/data/`;
 3. copies in the prebuilt dashboard, a static site with no server, and pushes.
 
 Nothing else on the `gh-pages` branch is touched, so it can sit beside an existing site. The runs need no `npm install`: the dashboard ships prebuilt in [`dist/`](dist/), and the tracker is TypeScript that Node runs directly.

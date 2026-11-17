@@ -1,0 +1,37 @@
+<article class="card pulls">
+  <header class="pulls-head">
+    <h2>Pull requests</h2>
+    <p>
+      Who writes the changes: an AI agent's account, a person working with an
+      agent (named in a commit trailer or the description), or a person alone.
+      Last <span data-window>30</span> days.
+    </p>
+  </header>
+  <p class="pulls-headline">
+    <strong class="tabular" data-share>—</strong>
+    <span data-share-text
+      >of merged pull requests had an agent's hand in them</span
+    >
+  </p>
+  <div class="segments" data-bar role="img"></div>
+  <ul class="legend" data-legend></ul>
+  <table class="pulls-table">
+    <thead>
+      <tr>
+        <th scope="col">Written by</th>
+        <th scope="col">Opened</th>
+        <th scope="col">Merged</th>
+        <th scope="col">Closed unmerged</th>
+        <th scope="col">Merge rate</th>
+        <th scope="col">Time to merge</th>
+      </tr>
+    </thead>
+    <tbody data-rows></tbody>
+  </table>
+  <p class="pulls-note" data-agents></p>
+  <p class="pulls-note">
+    Agents working through a person's account without a trailer or signature are
+    counted as people, so agent figures are a lower bound. Dependency and CI
+    bots are left out.
+  </p>
+</article>

@@ -82,3 +82,69 @@ export function formatDuration(hours: number | null): string {
   const days = hours / 24;
   return `${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
 }
+
+export const ORIGINS = ['agent', 'assisted', 'human'] as const;
+export type Origin = (typeof ORIGINS)[number];
+
+export interface OriginStats {
+  opened: number;
+  merged: number;
+  closedUnmerged: number;
+  stillOpen: number;
+  mergeRate: number | null;
+  medianHoursToMerge: number | null;
+}
+
+export interface Pulls {
+  windowDays: number;
+  total: number;
+  byOrigin: Record<Origin, OriginStats>;
+  /** Pull requests per named agent in the window. */
+  agents: Record<string, number>;
+}
+
+/** The `pulls` block of status.json, or `null` if absent. */
+export function parsePulls(status: unknown): Pulls | null {
+  const raw = (status as { pulls?: Record<string, unknown> } | null)?.pulls;
+  const by = raw?.by_origin as
+    Record<string, Record<string, unknown>> | undefined;
+  if (!raw || !by) return null;
+  const num = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null;
+  const agents: Record<string, number> = {};
+  for (const [name, count] of Object.entries(
+    (raw.agents ?? {}) as Record<string, unknown>
+  )) {
+    if (typeof count === 'number') agents[name] = count;
+  }
+  return {
+    windowDays: Number(raw.window_days) || 30,
+    total: Number(raw.total) || 0,
+    byOrigin: Object.fromEntries(
+      ORIGINS.map((o) => {
+        const s = by[o] ?? {};
+        return [
+          o,
+          {
+            opened: num(s.opened) ?? 0,
+            merged: num(s.merged) ?? 0,
+            closedUnmerged: num(s.closed_unmerged) ?? 0,
+            stillOpen: num(s.still_open) ?? 0,
+            mergeRate: num(s.merge_rate),
+            medianHoursToMerge: num(s.median_hours_to_merge),
+          },
+        ];
+      })
+    ) as Record<Origin, OriginStats>,
+    agents,
+  };
+}
+
+/** Share of merged pull requests an agent wrote or helped write. */
+export function agentMergedShare(pulls: Pulls): number | null {
+  const merged = ORIGINS.reduce((s, o) => s + pulls.byOrigin[o].merged, 0);
+  if (merged === 0) return null;
+  return (
+    (pulls.byOrigin.agent.merged + pulls.byOrigin.assisted.merged) / merged
+  );
+}

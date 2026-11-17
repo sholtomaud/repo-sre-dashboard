@@ -633,3 +633,62 @@ test('the outlook waits for data with issue classes', async ({ page }) => {
     'The outlook appears after the next tracker run, which records each class of issue.'
   );
 });
+
+test('pull requests are shown by who wrote them', async ({ page }) => {
+  await withFixture(page, CSV, 200, {
+    ...STATUS,
+    pulls: {
+      window_days: 30,
+      total: 10,
+      by_origin: {
+        agent: {
+          opened: 4,
+          merged: 2,
+          closed_unmerged: 1,
+          still_open: 1,
+          merge_rate: 0.667,
+          median_hours_to_merge: 5,
+        },
+        assisted: {
+          opened: 2,
+          merged: 2,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: 1,
+          median_hours_to_merge: 20,
+        },
+        human: {
+          opened: 4,
+          merged: 4,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: 1,
+          median_hours_to_merge: 30,
+        },
+      },
+      agents: { Copilot: 4, Claude: 2 },
+    },
+  });
+  await page.goto('/');
+  const panel = page.locator('pull-panel');
+  await expect(panel).toBeVisible();
+  // 2 by agents and 2 assisted, of 8 merged.
+  await expect(panel.locator('[data-share]')).toHaveText('50.0%');
+  await expect(panel.locator('tr[data-origin="agent"] td').nth(4)).toHaveText(
+    '66.7%'
+  );
+  await expect(
+    panel.locator('tr[data-origin="assisted"] td').nth(5)
+  ).toHaveText('20 h');
+  await expect(panel.locator('[data-agents]')).toHaveText(
+    'Agents seen: Copilot 4 · Claude 2.'
+  );
+});
+
+test('the pull request panel is hidden without pull request data', async ({
+  page,
+}) => {
+  await withFixture(page);
+  await page.goto('/');
+  await expect(page.locator('pull-panel')).toBeHidden();
+});
