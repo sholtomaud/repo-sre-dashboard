@@ -1,0 +1,92 @@
+name: Repo SRE Dashboard
+description: >-
+  Publishes a reliability dashboard for this repository to GitHub Pages: who
+  resolves its issues (AI agents or humans), how fast, whether the backlog is
+  growing, how issues are closed, response times, a forecast, and advice on
+  getting more from it.
+author: Sholto Maud
+branding:
+  icon: activity
+  color: orange
+
+inputs:
+  token:
+    description: Token for reading the repository and pushing to the Pages branch.
+    default: ${{ github.token }}
+  path:
+    description: Folder on the Pages branch to publish to, so the dashboard is at /<repository>/<path>/.
+    default: dashboard
+  branch:
+    description: The Pages branch. Created if it does not exist.
+    default: gh-pages
+  title:
+    description: The dashboard's title.
+    default: Developer Doomsday Clock
+  agent-logins:
+    description: Extra GitHub logins to count as AI agents, comma or space separated. Bot accounts and logins such as copilot or claude are recognised already.
+    default: ''
+  queue-repository:
+    description: For a file-based issue queue, the repository that holds it (owner/name). Defaults to this repository.
+    default: ''
+  queue-open-dir:
+    description: For a file-based issue queue, the folder of open issues. Leave empty for none.
+    default: ''
+  queue-resolved-dir:
+    description: For a file-based issue queue, the folder of resolved issues.
+    default: ''
+  queue-name:
+    description: The file-based queue's name on the dashboard.
+    default: "Agents' own queue"
+  public-weight:
+    description: With a file-based queue, the GitHub issues' weight (0 to 1) in the combined clock. The default gives each queue equal weight.
+    default: '0.5'
+  why:
+    description: Optional note on why this repository is tracked, shown on the methodology page.
+    default: ''
+  why-url:
+    description: Optional link for the note.
+    default: ''
+
+outputs:
+  url:
+    description: Where the dashboard is published.
+    value: ${{ steps.publish.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - name: Check out the Pages branch
+      shell: bash
+      env:
+        SRE_TOKEN: ${{ inputs.token }}
+        SRE_BRANCH: ${{ inputs.branch }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/checkout-pages.sh"
+
+    - name: Collect the data
+      shell: bash
+      env:
+        SRE_TOKEN: ${{ inputs.token }}
+        SRE_DATA_DIR: ${{ runner.temp }}/sre-pages/${{ inputs.path }}/data
+        SRE_TITLE: ${{ inputs.title }}
+        SRE_AGENT_LOGINS: ${{ inputs.agent-logins }}
+        SRE_QUEUE_REPOSITORY: ${{ inputs.queue-repository }}
+        SRE_QUEUE_OPEN_DIR: ${{ inputs.queue-open-dir }}
+        SRE_QUEUE_RESOLVED_DIR: ${{ inputs.queue-resolved-dir }}
+        SRE_QUEUE_NAME: ${{ inputs.queue-name }}
+        SRE_PUBLIC_WEIGHT: ${{ inputs.public-weight }}
+        SRE_WHY_TEXT: ${{ inputs.why }}
+        SRE_WHY_URL: ${{ inputs.why-url }}
+      run: node "$GITHUB_ACTION_PATH/tracker/src/main.ts"
+
+    - name: Publish the dashboard
+      id: publish
+      shell: bash
+      env:
+        SRE_PATH: ${{ inputs.path }}
+        SRE_BRANCH: ${{ inputs.branch }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/publish.sh"

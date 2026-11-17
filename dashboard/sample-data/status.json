@@ -1,0 +1,78 @@
+{
+  "updated_at": "2026-11-17T07:20:55Z",
+  "schedule": {
+    "cron": "5 */6 * * *",
+    "runs_per_day": 4,
+    "interval_hours": 6,
+    "description": "every 6 hours",
+    "run_times_utc": [
+      "00:05",
+      "06:05",
+      "12:05",
+      "18:05"
+    ]
+  },
+  "weighting": {
+    "default_public_weight": 0.5
+  },
+  "issues": {
+    "source": "graphql",
+    "open": 469,
+    "open_labelled": 4,
+    "open_by_kind": {
+      "behavior": 394,
+      "feature": 35,
+      "other": 40
+    },
+    "ever_closed": 41,
+    "reopened": 0
+  },
+  "responses": {
+    "windowDays": 30,
+    "firstResponse": {
+      "count": 12,
+      "medianHours": 20.5,
+      "p90Hours": 96
+    },
+    "resolution": {
+      "count": 41,
+      "medianHours": 70,
+      "p90Hours": 120
+    },
+    "awaitingResponse": 430
+  },
+  "practices": [
+    {
+      "id": "issue-forms",
+      "title": "Issue forms",
+      "status": "pass",
+      "evidence": "2 issue forms: behavior-differs.yml, feature-request.yml",
+      "recommendation": "",
+      "docs": "https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms"
+    },
+    {
+      "id": "labels",
+      "title": "Issues are labelled",
+      "status": "missing",
+      "evidence": "1% of 506 issues carry a label",
+      "recommendation": "Label every issue at triage, at least bug or enhancement. Issue forms can add the label for you.",
+      "docs": "https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels"
+    },
+    {
+      "id": "linked-fixes",
+      "title": "Closed issues link to their fix",
+      "status": "missing",
+      "evidence": "10% of 41 completed closures reference a commit, pull request or release",
+      "recommendation": "Close issues from the fix: write \"Fixes #123\" in the pull request description or commit message.",
+      "docs": "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue"
+    },
+    {
+      "id": "schedule",
+      "title": "The dashboard updates on a schedule",
+      "status": "pass",
+      "evidence": "Runs every 6 hours",
+      "recommendation": "",
+      "docs": "https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule"
+    }
+  ]
+}

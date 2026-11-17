@@ -1,0 +1,153 @@
+<main class="page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">
+        AI replacement index ·
+        <a
+          data-tracked-link
+          class="hero-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        ></a>
+      </p>
+      <h1>Developer Doomsday Clock</h1>
+      <p class="lede">
+        How close are AI agents to resolving every issue in
+        <span data-repo-name></span>? The clock reads midnight when they resolve
+        all of them. <span data-why hidden></span>
+      </p>
+    </div>
+    <div class="hero-meta">
+      <p class="status" data-status hidden>
+        <span class="status-icon" data-status-icon aria-hidden="true"></span>
+        <span data-status-label></span>
+      </p>
+      <p class="as-of" data-as-of role="status">Loading the latest numbers…</p>
+    </div>
+  </header>
+
+  <section class="grid-top" data-content aria-busy="true">
+    <div class="clock-column">
+      <article class="card panel">
+        <header class="panel-head">
+          <h2>Developer Doomsday Clock</h2>
+          <p>
+            Hours to midnight = (1 −
+            <span data-combined-word>combined </span>agent resolution share) ×
+            24.
+            <span data-clock-note></span>
+          </p>
+        </header>
+        <doomsday-clock data-size="large"></doomsday-clock>
+        <p class="version-note">
+          Version 2 combines the public issues with the agents' own queue.
+          Version 1 counted the public issues only.
+          <a href="/methodology">What changed</a>
+        </p>
+      </article>
+      <weight-slider></weight-slider>
+    </div>
+
+    <article class="card panel">
+      <header class="panel-head">
+        <h2>Resolution velocity</h2>
+        <p>
+          Issues resolved per day by agents (orange) and humans (purple). The
+          blue mark is new issues; the outer arc is the gap.
+        </p>
+      </header>
+      <div class="dials">
+        <velocity-gauge data-dial="combined" data-size="large"></velocity-gauge>
+        <velocity-gauge data-dial="agents" data-size="small"></velocity-gauge>
+        <velocity-gauge data-dial="public" data-size="small"></velocity-gauge>
+      </div>
+      <replay-control></replay-control>
+      <p class="forecast-note" data-forecast-note></p>
+    </article>
+  </section>
+
+  <section
+    class="loops"
+    aria-label="Bug doom loop: combined and for each queue"
+  >
+    <doom-loop data-queue-loop="combined" class="loop-combined"></doom-loop>
+    <doom-loop data-queue-loop="agents"></doom-loop>
+    <doom-loop data-queue-loop="public"></doom-loop>
+  </section>
+
+  <section class="tiles" aria-label="Indices">
+    <div class="card tile">
+      <p class="tile-label">Agent resolution share</p>
+      <p class="tile-value tabular" data-stat="share">—</p>
+      <p class="tile-delta" data-stat="share-note"></p>
+    </div>
+    <div class="card tile">
+      <p class="tile-label">Time to first response</p>
+      <p class="tile-value tabular" data-stat="first-response">—</p>
+      <p class="tile-delta" data-stat="first-response-note"></p>
+    </div>
+    <div class="card tile">
+      <p class="tile-label">Time to resolution</p>
+      <p class="tile-value tabular" data-stat="resolution">—</p>
+      <p class="tile-delta" data-stat="resolution-note"></p>
+    </div>
+    <div class="card tile" data-tile="attention">
+      <p class="tile-label">Public attention index</p>
+      <p class="tile-value tabular" data-stat="attention">—</p>
+      <p class="tile-delta" data-stat="attention-note"></p>
+    </div>
+    <div class="card tile">
+      <p class="tile-label">Verified closure rate</p>
+      <p class="tile-value tabular" data-stat="verified">—</p>
+      <p class="tile-delta" data-stat="verified-note"></p>
+    </div>
+    <div class="card tile">
+      <p class="tile-label">Reopen rate</p>
+      <p class="tile-value tabular" data-stat="reopen">—</p>
+      <p class="tile-delta" data-stat="reopen-note"></p>
+    </div>
+    <div class="card tile">
+      <p class="tile-label">Open backlog</p>
+      <p class="tile-value tabular" data-stat="open">—</p>
+      <p class="tile-delta" data-stat="open-note"></p>
+    </div>
+  </section>
+
+  <queue-compare></queue-compare>
+
+  <closure-evidence></closure-evidence>
+
+  <practice-list></practice-list>
+
+  <article class="card panel">
+    <header class="panel-head">
+      <h2><span data-issues-name>Issues</span> over time</h2>
+      <p>Running totals for <span data-tracked-name></span>, by day (UTC)</p>
+    </header>
+    <trend-chart data-trend="public"></trend-chart>
+  </article>
+
+  <article class="card panel" data-queue-trend hidden>
+    <header class="panel-head">
+      <h2>Agents' own queue over time</h2>
+      <p>
+        Files in the repository's two issue folders at the end of each day
+        (UTC), from the first commit
+      </p>
+    </header>
+    <trend-chart data-trend="agents"></trend-chart>
+  </article>
+
+  <footer class="foot">
+    <p>
+      <span data-schedule>Updated</span> by GitHub Actions from the repository's
+      issue tracker and repository. Raw data:
+      <a data-csv-link target="_blank" rel="noopener noreferrer">data.csv</a> ·
+      <a data-project-link target="_blank" rel="noopener noreferrer"
+        >Repo SRE Dashboard</a
+      >
+      ·
+      <a href="/methodology">How it is calculated</a>
+    </p>
+  </footer>
+</main>

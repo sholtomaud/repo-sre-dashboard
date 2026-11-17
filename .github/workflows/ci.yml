@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tracker:
+    name: Tracker and Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # The version action.yml runs the tracker on.
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      # Includes the whole Action against a stand-in GitHub, on the
+      # committed site in dist/.
+      - run: npm test
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.65.1-noble
+    env:
+      # Firefox will not start unless $HOME belongs to the user running it.
+      HOME: /root
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.x
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npx playwright test
+      # The Action ships the prebuilt site in dist/; it must match the source.
+      - name: The committed site is up to date
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          npm run build:action
+          git diff --stat --exit-code -- ../dist || {
+            echo "::error::dist/ is out of date: run 'npm run build:action' in dashboard/ and commit the result."
+            exit 1
+          }
+      - name: Upload the test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: dashboard/playwright-report
+          retention-days: 7

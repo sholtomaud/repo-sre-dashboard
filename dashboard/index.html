@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws:;"
+    />
+    <meta name="theme-color" content="#1a1a19" />
+    <meta name="description" content="Developer Doomsday Clock: how close AI agents are to resolving every issue in this repository, with velocity, doom loop, closure evidence, response times and a forecast." />
+    <!-- The path the app is served from, set at build time (vite build
+         --base). Relative URLs in the app, such as data/data.csv, resolve
+         from here whatever page is open. -->
+    <base href="%BASE_URL%" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <title>Developer Doomsday Clock</title>
+    <script type="module" src="src/main.ts"></script>
+  </head>
+  <body>
+    <app-nav></app-nav>
+    <div id="router-outlet"></div>
+  </body>
+</html>

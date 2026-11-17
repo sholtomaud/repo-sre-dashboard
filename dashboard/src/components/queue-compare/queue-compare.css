@@ -1,0 +1,110 @@
+:host {
+  display: block;
+}
+:host .queues {
+  padding: 1.25rem;
+}
+@media (min-width: 640px) {
+  :host .queues {
+    padding: 1.5rem 1.75rem 1.75rem;
+  }
+}
+:host h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+:host .queues-head p {
+  margin: 0.25rem 0 0;
+  max-width: 78ch;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+:host .queues-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+@media (min-width: 800px) {
+  :host .queues-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+  }
+  :host .queue + .queue {
+    padding-left: 2.5rem;
+    border-left: 1px solid var(--grid);
+  }
+}
+:host h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+:host .queue-source {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+:host .queue-totals {
+  display: flex;
+  gap: 2rem;
+  margin: 0.875rem 0 1rem;
+}
+:host dt {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+:host dd {
+  margin: 0.125rem 0 0;
+  font-size: 1.625rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+:host .bar-row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 13.5rem) 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+:host .bar-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+:host .bar {
+  height: 12px;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+:host .bar-value {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+:host .queues-summary {
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--grid);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+:host .queues-summary strong {
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  :host .bar {
+    transition: none;
+  }
+}
+:host .queue-split {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}

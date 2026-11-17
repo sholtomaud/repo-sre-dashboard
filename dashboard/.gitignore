@@ -1,0 +1,24 @@
+node_modules/
+dist/
+dist-subpath/
+
+# Test output
+playwright-report/
+test-results/
+
+# Local configuration
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Copied from the repository root by scripts/sync-data.ts
+public/data/data.csv
+public/data/status.json
+public/data/agent_queue.csv
+public/data/config.json

@@ -1,0 +1,29 @@
+<article class="card queues">
+  <header class="queues-head">
+    <h2>Where the agents work</h2>
+    <p>
+      Issues are tracked in two places: a queue of files in the repository, and
+      GitHub Issues.
+    </p>
+  </header>
+  <div class="queues-grid" data-grid></div>
+  <p class="queues-summary" data-summary></p>
+  <template data-queue-template>
+    <section class="queue">
+      <h3 data-name></h3>
+      <p class="queue-source" data-source></p>
+      <dl class="queue-totals">
+        <div>
+          <dt>Open</dt>
+          <dd class="tabular" data-open></dd>
+        </div>
+        <div>
+          <dt data-resolved-label></dt>
+          <dd class="tabular" data-resolved></dd>
+        </div>
+      </dl>
+      <p class="queue-split" data-split></p>
+      <div class="queue-bars" data-bars></div>
+    </section>
+  </template>
+</article>

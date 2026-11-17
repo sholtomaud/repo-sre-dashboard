@@ -1,0 +1,8 @@
+date,open,agent_closed,human_closed,closed_fix_referenced,closed_no_reference,closed_declined,closed_withdrawn,closed_duplicate,behavior_created,behavior_closed
+2026-11-11,23,0,1,0,0,1,0,0,14,0
+2026-11-12,324,0,17,0,0,1,16,0,310,16
+2026-11-13,384,0,20,2,0,1,17,0,360,19
+2026-11-14,417,0,22,3,0,1,18,0,381,21
+2026-11-15,444,0,22,3,0,1,18,0,407,21
+2026-11-16,457,0,41,4,0,1,36,0,422,40
+2026-11-17,469,0,41,4,0,1,36,0,434,40

@@ -1,0 +1,28 @@
+<article class="card evidence">
+  <header class="evidence-head">
+    <h2>How issues were closed</h2>
+    <p>
+      What GitHub records about each closure. A referenced fix is a commit,
+      release or merged change that the closure points to.
+    </p>
+  </header>
+  <div data-body>
+    <p class="evidence-empty" data-empty hidden>
+      Closure details will appear after the next tracker run.
+    </p>
+    <section data-closures hidden>
+      <p class="evidence-headline">
+        <strong class="tabular" data-referenced></strong>
+        <span data-referenced-text></span>
+      </p>
+      <div class="segments" data-evidence-bar role="img"></div>
+      <ul class="legend" data-evidence-legend></ul>
+    </section>
+    <section class="kinds" data-kinds hidden>
+      <h3>Open issues by type</h3>
+      <div class="segments" data-kind-bar role="img"></div>
+      <ul class="legend" data-kind-legend></ul>
+      <p class="evidence-note" data-labelled></p>
+    </section>
+  </div>
+</article>

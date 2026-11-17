@@ -1,0 +1,145 @@
+:host {
+  display: block;
+}
+:host .gauge {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+:host .gauge-frame {
+  width: min(100%, 380px);
+  aspect-ratio: 320 / 236;
+}
+:host .gauge-frame svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+:host .needle {
+  transform-box: view-box;
+  transform-origin: 160px 150px;
+  transition: transform 2s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+:host .gauge-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+:host .gauge-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+:host .gauge-legend strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+:host .key {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+:host .key-tick {
+  width: 3px;
+  height: 12px;
+}
+:host .gauge-gap {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-align: center;
+  color: var(--ink);
+}
+:host .gauge-gap[data-state='ahead'] {
+  color: var(--good-ink);
+}
+:host .gauge-gap[data-state='behind'] {
+  color: var(--critical-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  :host .needle {
+    transition: none;
+  }
+}
+:host .gauge-heading {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+/* The smaller dials of the cluster: the same dial, lighter legend. */
+:host[data-size='small'] .gauge-frame {
+  width: min(100%, 250px);
+}
+:host[data-size='small'] .gauge-legend {
+  font-size: 0.75rem;
+  gap: 0.25rem 0.875rem;
+}
+:host[data-size='large'] .gauge-frame {
+  width: min(100%, 420px);
+}
+:host[data-size='small'] .gauge-gap {
+  font-size: 0.8125rem;
+}
+:host .gauge-forecast {
+  margin: -0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--ink-2);
+}
+/* The open backlog as a rally-car odometer. */
+:host .gauge-odometer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+:host .gauge-odometer[hidden] {
+  display: none;
+}
+:host .odometer-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+:host .odometer-wheels {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  background: var(--ink);
+}
+:host .wheel {
+  display: inline-block;
+  width: 1.05em;
+  padding: 0.1em 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    var(--clock-ink),
+    var(--ink-2) 50%,
+    var(--clock-ink)
+  );
+  color: var(--page);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: center;
+}
+:host .wheel.lead {
+  opacity: 0.45;
+}
+:host[data-size='small'] .wheel {
+  font-size: 0.8125rem;
+}
