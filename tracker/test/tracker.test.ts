@@ -20,7 +20,14 @@ import {
   toIssue,
   type Issue,
 } from '../src/issues.ts';
-import { checkPractices } from '../src/practices.ts';
+import { auditScore, runAudit } from '../src/audit.ts';
+import { ciHealth, readWorkflow, type Profile } from '../src/repo.ts';
+import {
+  deliveryMetrics,
+  frequencyBand,
+  leadTimeBand,
+} from '../src/delivery.ts';
+import { isRepair } from '../src/pulls.ts';
 import { isAutomationAuthor } from '../src/queue.ts';
 import {
   agentInSignature,
@@ -242,7 +249,62 @@ test('a GraphQL issue becomes a record', () => {
   assert.equal(record.firstResponseAt, '2026-11-01T06:00:00Z');
 });
 
-test('the habits checklist grades and recommends', () => {
+const PROFILE: Profile = {
+  description: null,
+  defaultBranch: 'main',
+  createdAt: null,
+  pushedAt: null,
+  visibility: 'public',
+  stars: 0,
+  forks: 0,
+  archived: false,
+  license: 'MIT',
+  topics: [],
+  languages: { TypeScript: 10 },
+  files: 10,
+  testFiles: 0,
+  truncated: false,
+  keyFiles: {
+    readme: 'README.md',
+    license: 'LICENSE',
+    contributing: null,
+    security: null,
+    codeowners: null,
+    dependencyUpdates: null,
+    pullTemplate: null,
+    socket: null,
+    agentInstructions: null,
+  },
+  lockfiles: ['package-lock.json'],
+  ecosystems: [{ name: 'npm', directory: '/' }],
+  issueTemplates: ['bug_report.md', 'config.yml'],
+  workflows: [],
+  branch: { protected: false, requiresReview: false, requiresChecks: false },
+  ciRuns: [],
+  releases: [],
+  deployments: [],
+  denied: [],
+};
+
+const NOW = new Date('2026-11-17T00:00:00Z');
+
+function audit(profile: Partial<Profile>, issues = issueSummary([])) {
+  const full = { ...PROFILE, ...profile };
+  const pulls = pullSummary([], NOW);
+  const checks = runAudit({
+    repository: 'owner/project',
+    profile: full,
+    summary: issues,
+    schedule: describeCron('5 */6 * * *'),
+    pulls,
+    ci: ciHealth(full.ciRuns, NOW),
+    delivery: deliveryMetrics(full, [], [], NOW),
+    costConfigured: false,
+  });
+  return Object.fromEntries(checks.map((c) => [c.id, c]));
+}
+
+test('the audit grades setup and habits, with fixes to copy', () => {
   const summary = issueSummary([
     ...Array.from({ length: 12 }, (_, i) =>
       issue({ number: i, labelled: i < 3 })
@@ -256,12 +318,7 @@ test('the habits checklist grades and recommends', () => {
       })
     ),
   ]);
-  const practices = checkPractices({
-    issueTemplates: ['bug_report.md', 'config.yml'],
-    summary,
-    schedule: describeCron('5 */6 * * *'),
-  });
-  const by = Object.fromEntries(practices.map((p) => [p.id, p]));
+  const by = audit({}, summary);
   assert.equal(by['issue-forms'].status, 'improve');
   assert.match(by['issue-forms'].evidence, /Markdown templates only/);
   assert.equal(by.labels.status, 'improve');
@@ -269,15 +326,167 @@ test('the habits checklist grades and recommends', () => {
   assert.equal(by['linked-fixes'].recommendation, '');
   assert.equal(by.schedule.status, 'pass');
 
-  const none = checkPractices({
-    issueTemplates: null,
-    summary: issueSummary([]),
-    schedule: describeCron('0 0 * * 1'),
+  // A bare repository: the fixes name what to add.
+  assert.equal(by['ci-on-pull-requests'].status, 'missing');
+  assert.match(by['ci-on-pull-requests'].fixes[0].content, /npm test/);
+  assert.equal(by['dependency-updates'].status, 'missing');
+  const dependabot = by['dependency-updates'].fixes[0].content;
+  assert.match(dependabot, /package-ecosystem: npm/);
+  assert.match(dependabot, /package-ecosystem: github-actions/);
+  assert.equal(by['auto-patch'].status, 'improve');
+  assert.match(by['auto-patch'].fixes[0].content, /fetch-metadata/);
+  assert.equal(by['supply-chain-scanning'].status, 'missing');
+  assert.match(by['code-scanning'].fixes[0].content, /javascript-typescript/);
+  assert.equal(by['security-policy'].status, 'missing');
+  assert.match(by['security-policy'].fixes[0].content, /owner\/project/);
+  assert.equal(by['agentic-triage'].status, 'improve');
+  assert.match(by['agentic-triage'].why, /never go in the dashboard/);
+  assert.equal(by.cost.status, 'improve');
+  assert.equal(by['project-basics'].status, 'improve');
+  assert.match(by['project-basics'].evidence, /CONTRIBUTING/);
+
+  // Nothing to judge yet: habit checks wait rather than fail.
+  const empty = audit({});
+  assert.equal(empty.labels.status, 'waiting');
+  assert.equal(empty['linked-fixes'].status, 'waiting');
+  assert.equal(empty['ci-health'].status, 'waiting');
+});
+
+test('the audit recognises tools already in place', () => {
+  const ci = readWorkflow(
+    '.github/workflows/ci.yml',
+    `name: CI
+on:
+  pull_request:
+  push:
+permissions:
+  contents: read
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: github/codeql-action/init@v3
+      - uses: dependabot/fetch-metadata@v2
+      - run: npm test
+`
+  );
+  assert.equal(ci.onPullRequest, true);
+  assert.equal(ci.runsTests, true);
+  assert.equal(ci.permissions, true);
+  assert.equal(ci.unpinned, 2);
+  assert.ok(ci.uses.includes('github/codeql-action/init'));
+
+  const by = audit({
+    workflows: [ci],
+    testFiles: 4,
+    keyFiles: {
+      ...PROFILE.keyFiles,
+      dependencyUpdates: '.github/dependabot.yml',
+      socket: 'socket.yml',
+    },
+    branch: { protected: true, requiresReview: true, requiresChecks: true },
   });
-  const byNone = Object.fromEntries(none.map((p) => [p.id, p]));
-  assert.equal(byNone['issue-forms'].status, 'missing');
-  assert.equal(byNone.labels.status, 'unknown');
-  assert.equal(byNone['linked-fixes'].status, 'unknown');
+  for (const id of [
+    'ci-on-pull-requests',
+    'tests',
+    'branch-rules',
+    'dependency-updates',
+    'auto-patch',
+    'supply-chain-scanning',
+    'code-scanning',
+    'workflow-permissions',
+  ]) {
+    assert.equal(by[id].status, 'pass', id);
+    assert.deepEqual(by[id].fixes, []);
+  }
+  assert.equal(by['pinned-actions'].status, 'improve');
+
+  // A denied read is reported with the permission that fixes it.
+  const denied = audit({
+    denied: [{ what: 'CI runs', permission: 'actions: read' }],
+  });
+  assert.equal(denied['token-permissions'].status, 'missing');
+  assert.match(denied['ci-health'].evidence, /actions: read/);
+
+  const score = auditScore(Object.values(by));
+  assert.ok(score.score! > auditScore(Object.values(audit({}))).score!);
+  assert.equal(score.waiting, 4);
+});
+
+test('CI health: success rate, time to green, failing now', () => {
+  const run = (at: string, conclusion: string, path = 'ci.yml') => ({
+    workflow: path,
+    path,
+    conclusion,
+    createdAt: at,
+    startedAt: at,
+    updatedAt: new Date(Date.parse(at) + 10 * 60_000).toISOString(),
+  });
+  const health = ciHealth(
+    [
+      run('2026-11-10T00:00:00Z', 'success'),
+      run('2026-11-11T00:00:00Z', 'failure'),
+      run('2026-11-11T02:00:00Z', 'failure'),
+      run('2026-11-11T04:00:00Z', 'success'),
+      run('2026-11-12T00:00:00Z', 'cancelled'),
+      run('2026-11-12T00:00:00Z', 'failure', 'lint.yml'),
+    ],
+    NOW
+  );
+  assert.equal(health.runs, 5);
+  assert.equal(health.failed, 3);
+  assert.equal(health.median_minutes, 10);
+  assert.equal(health.median_hours_to_green, 4);
+  assert.deepEqual(health.failing_now, ['lint.yml']);
+});
+
+test('delivery metrics fall back from deployments to releases to merges', () => {
+  assert.equal(frequencyBand(2), 'elite');
+  assert.equal(frequencyBand(0.2), 'high');
+  assert.equal(leadTimeBand(30), 'high');
+  assert.equal(isRepair('Revert "Add cache"', []), true);
+  assert.equal(isRepair('Add cache', ['hotfix']), true);
+  assert.equal(isRepair('Add cache', []), false);
+
+  const pull = (n: number, repair = false) => ({
+    number: n,
+    createdAt: '2026-11-10T00:00:00Z',
+    mergedAt: '2026-11-10T06:00:00Z',
+    closedAt: '2026-11-10T06:00:00Z',
+    origin: 'human' as const,
+    agent: null,
+    base: 'main',
+    repair,
+  });
+  const merges = deliveryMetrics(PROFILE, [pull(1), pull(2, true)], [], NOW);
+  assert.equal(merges.source, 'merges');
+  assert.equal(merges.deployment_frequency.count, 2);
+  assert.equal(merges.lead_time_hours.value, 6);
+  assert.equal(merges.change_failure_rate.value, 0.5);
+  assert.equal(merges.time_to_restore_hours.value, null);
+
+  const released = deliveryMetrics(
+    {
+      ...PROFILE,
+      releases: [
+        { tag: 'v1', publishedAt: '2026-11-11T00:00:00Z', prerelease: false },
+      ],
+    },
+    [pull(1)],
+    [
+      issue({
+        number: 9,
+        incident: true,
+        createdAt: '2026-11-12T00:00:00Z',
+        closedAt: '2026-11-12T03:00:00Z',
+      }),
+    ],
+    NOW
+  );
+  assert.equal(released.source, 'releases');
+  assert.equal(released.lead_time_hours.value, 24);
+  assert.equal(released.time_to_restore_hours.value, 3);
+  assert.equal(released.time_to_restore_hours.band, 'high');
 });
 
 test('the client pages through REST lists and reports GraphQL errors', async () => {

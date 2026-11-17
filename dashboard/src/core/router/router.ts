@@ -147,7 +147,8 @@ export class Router extends EventTarget {
 
   /** Matches an app path, runs the route's guard and renders the result. */
   private async go(appPath: string, push: boolean): Promise<void> {
-    const [path, queryString = ''] = appPath.split('?');
+    // A fragment (/audit#tests) is for the page; routes match without it.
+    const [path, queryString = ''] = appPath.split('#')[0].split('?');
     const query = Object.fromEntries(new URLSearchParams(queryString));
     const match = this.findRoute(path);
     const to: RouteLocation = { path, params: match?.params ?? {}, query };

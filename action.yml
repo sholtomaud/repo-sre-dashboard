@@ -1,9 +1,9 @@
 name: Repo SRE Dashboard
 description: >-
-  Publishes a reliability dashboard for this repository to GitHub Pages: who
-  resolves its issues (AI agents or humans), how fast, whether the backlog is
-  growing, how issues are closed, response times, a forecast, and advice on
-  getting more from it.
+  Publishes a repository health dashboard to GitHub Pages: issues and pull
+  requests by AI agents and people, DORA delivery metrics and CI health, a
+  simulated outlook, the codebase, and a best-practice audit with fixes to
+  copy.
 author: Sholto Maud
 branding:
   icon: activity
@@ -20,8 +20,8 @@ inputs:
     description: The Pages branch. Created if it does not exist.
     default: gh-pages
   title:
-    description: The dashboard's title.
-    default: Developer Doomsday Clock
+    description: The dashboard's title. Defaults to the repository's name.
+    default: ''
   agent-logins:
     description: Extra GitHub logins to count as AI agents, comma or space separated. Bot accounts and logins such as copilot or claude are recognised already.
     default: ''
@@ -37,9 +37,6 @@ inputs:
   queue-name:
     description: The file-based queue's name on the dashboard.
     default: "Agents' own queue"
-  public-weight:
-    description: With a file-based queue, the GitHub issues' weight (0 to 1) in the combined clock. The default gives each queue equal weight.
-    default: '0.5'
   security-days:
     description: Manageability limit for security issues, in days (decimals allowed, e.g. 0.5 for 12 hours). A repository is unmanageable once a new issue of any class would wait longer than its limit.
     default: '7'
@@ -102,7 +99,6 @@ runs:
         SRE_QUEUE_OPEN_DIR: ${{ inputs.queue-open-dir }}
         SRE_QUEUE_RESOLVED_DIR: ${{ inputs.queue-resolved-dir }}
         SRE_QUEUE_NAME: ${{ inputs.queue-name }}
-        SRE_PUBLIC_WEIGHT: ${{ inputs.public-weight }}
         SRE_SECURITY_DAYS: ${{ inputs.security-days }}
         SRE_BUG_DAYS: ${{ inputs.bug-days }}
         SRE_FEATURE_DAYS: ${{ inputs.feature-days }}

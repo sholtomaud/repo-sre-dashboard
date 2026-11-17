@@ -42,7 +42,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   repository: 'this repository',
   repositoryUrl: '',
   issuesUrl: '',
-  title: 'Developer Doomsday Clock',
+  title: 'Repository health',
   queue: null,
   why: null,
   limits: DEFAULT_LIMITS,
