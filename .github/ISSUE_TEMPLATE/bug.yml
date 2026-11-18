@@ -1,0 +1,22 @@
+name: Bug report
+description: The Action or the dashboard does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Your workflow file and a link to the failing run help most.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The ref in `uses:`, for example v1 or a commit SHA.

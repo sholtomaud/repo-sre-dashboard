@@ -1,0 +1,25 @@
+# The labels the dashboard reads: issue types for the time limits, and
+# incident labels for time to restore service. Runs when this file changes.
+name: Labels
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/labels.yml]
+  workflow_dispatch:
+permissions:
+  issues: write
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          label() { gh label create "$1" --color "$2" --description "$3" --force; }
+          label bug          D73A4A "Something does not work as documented"
+          label enhancement  A2EEEF "A new measure, check or improvement"
+          label security     B60205 "A security problem: 7-day limit"
+          label incident     B60205 "The Action or the published dashboard is broken for users"
+          label regression   D93F0B "Worked before, broken now"
+          label dependencies 0366D6 "Dependency updates"

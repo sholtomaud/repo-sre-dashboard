@@ -10,6 +10,8 @@ export interface GitHubClient {
   /** Every page of a REST list (per_page=100), up to `limit` items. */
   restAll<T>(path: string, limit?: number): Promise<T[]>;
   graphql<T>(query: string, variables: Record<string, unknown>): Promise<T>;
+  /** A REST write (POST, PATCH); throws on any HTTP error. */
+  send<T>(method: string, path: string, body: unknown): Promise<T>;
 }
 
 export interface ClientOptions {
@@ -97,5 +99,21 @@ export function createClient({
     return payload.data as T;
   }
 
-  return { rest, restAll, graphql };
+  async function send<T>(
+    method: string,
+    path: string,
+    body: unknown
+  ): Promise<T> {
+    const response = await request(`${apiUrl}${path}`, {
+      method,
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub API ${method} ${path}: HTTP ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
+  return { rest, restAll, graphql, send };
 }

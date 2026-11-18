@@ -26,7 +26,8 @@ import {
   issueSummary,
   responseTimes,
 } from './issues.ts';
-import { auditScore, runAudit } from './audit.ts';
+import { auditScore, runAudit, type Impact } from './audit.ts';
+import { syncAuditIssues } from './audit-issues.ts';
 import { deliveryMetrics } from './delivery.ts';
 import { ciHealth, profileSummary, readProfile } from './repo.ts';
 import { PULL_FIELDS, fetchPulls, pullRows, pullSummary } from './pulls.ts';
@@ -197,6 +198,27 @@ export async function main(now = new Date()): Promise<void> {
     delivery,
     audit: { ...auditScore(checks), checks },
   };
+  // Opt-in: one issue per finding, opened, updated and closed with it.
+  if (/^(true|yes|1)$/i.test(env('SRE_AUDIT_ISSUES'))) {
+    const impact = env('SRE_AUDIT_ISSUES_IMPACT', 'medium').toLowerCase();
+    try {
+      const synced = await syncAuditIssues(client, repository, checks, {
+        minImpact: (['high', 'medium', 'low'].includes(impact)
+          ? impact
+          : 'medium') as Impact,
+        dashboardUrl: env('SRE_DASHBOARD_URL'),
+      });
+      console.log(
+        `Audit issues: ${synced.opened.length} opened, ${synced.updated.length} updated, ${synced.reopened.length} reopened, ${synced.closed.length} closed`
+      );
+    } catch (error) {
+      // Most often the token lacks issues: write. The dashboard still goes out.
+      console.warn(
+        `::warning::Could not update the audit's issues (give the workflow issues: write): ${(error as Error).message}`
+      );
+    }
+  }
+
   fs.writeFileSync(
     path.join(out, 'status.json'),
     JSON.stringify(status, null, 2) + '\n'

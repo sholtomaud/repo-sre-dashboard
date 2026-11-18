@@ -90,6 +90,11 @@ function startApi(): Promise<http.Server> {
                   issueNode(1, true),
                   issueNode(2, false),
                   issueNode(3, false),
+                  // The audit's own issue: left out of the figures.
+                  {
+                    ...issueNode(4, false),
+                    labels: { nodes: [{ name: 'repo-sre-audit' }] },
+                  },
                 ],
               },
             },
@@ -133,6 +138,8 @@ function startApi(): Promise<http.Server> {
           'package-lock.json',
           'src/index.ts',
           'src/index.test.ts',
+          'web/package.json',
+          'examples/demo/package.json',
           '.github/workflows/sre.yml',
         ].map((path) => ({ path, type: 'blob' })),
       });
@@ -176,6 +183,7 @@ test(
           GITHUB_STEP_SUMMARY: summary,
           RUNNER_TEMP: work,
           SRE_TOKEN: 'test-token',
+          SRE_PUBLISH_TO: 'branch',
           SRE_BRANCH: 'gh-pages',
           SRE_PATH: 'dashboard',
           SRE_DATA_DIR: path.join(work, 'sre-pages', 'dashboard', 'data'),
@@ -196,8 +204,9 @@ test(
         }).then((r) => r.stdout);
       };
       const steps = async () => {
-        await run(path.join(root, 'scripts', 'checkout-pages.sh'));
+        await run(path.join(root, 'scripts', 'prepare.sh'));
         await run(path.join(root, 'tracker', 'src', 'main.ts'));
+        await run(path.join(root, 'scripts', 'assemble.sh'));
         return run(path.join(root, 'scripts', 'publish.sh'));
       };
 
@@ -213,6 +222,8 @@ test(
         '.nojekyll',
         'dashboard/index.html',
         'dashboard/methodology/index.html',
+        'dashboard/audit/index.html',
+        '404.html',
         'dashboard/data/data.csv',
         'dashboard/data/status.json',
         'dashboard/data/config.json',
@@ -227,6 +238,8 @@ test(
         show('dashboard/index.html'),
         /<base href="\/project\/dashboard\/"/
       );
+      assert.ok(!files.includes('index.html'), 'a branch keeps its own root');
+      assert.match(show('404.html'), /<base href="\/project\/dashboard\/"/);
       const status = JSON.parse(show('dashboard/data/status.json'));
       assert.equal(status.schedule.description, 'every 6 hours');
       assert.equal(status.issues.total, 3);
@@ -285,6 +298,73 @@ test(
       assert.deepEqual(
         after.filter((f) => f.startsWith('dashboard/assets/')).length,
         files.filter((f) => f.startsWith('dashboard/assets/')).length
+      );
+    } finally {
+      server.close();
+      fs.rmSync(work, { recursive: true, force: true });
+    }
+  }
+);
+
+test(
+  'for a Pages deployment the Action assembles the whole site',
+  { skip: !hasSite && 'run npm run build first' },
+  async () => {
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sre-pages-'));
+    const server = await startApi();
+    try {
+      const port = (server.address() as { port: number }).port;
+      const output = path.join(work, 'output');
+      const env = {
+        ...process.env,
+        GITHUB_ACTION_PATH: root,
+        GITHUB_REPOSITORY: 'owner/project',
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_API_URL: `http://127.0.0.1:${port}`,
+        GITHUB_WORKFLOW_REF:
+          'owner/project/.github/workflows/sre.yml@refs/heads/main',
+        GITHUB_OUTPUT: output,
+        GITHUB_STEP_SUMMARY: path.join(work, 'summary'),
+        RUNNER_TEMP: work,
+        SRE_TOKEN: 'test-token',
+        SRE_PUBLISH_TO: 'pages',
+        SRE_PATH: 'dashboard',
+        SRE_DATA_DIR: path.join(work, 'sre-pages', 'dashboard', 'data'),
+      };
+      const run = (script: string) =>
+        promisify(execFile)(
+          script.endsWith('.ts') ? 'node' : 'bash',
+          [script],
+          { env, cwd: work, encoding: 'utf8' }
+        ).then((r) => r.stdout);
+      await run(path.join(root, 'scripts', 'prepare.sh'));
+      await run(path.join(root, 'tracker', 'src', 'main.ts'));
+      await run(path.join(root, 'scripts', 'assemble.sh'));
+
+      const site = path.join(work, 'sre-pages');
+      const read = (file: string) =>
+        fs.readFileSync(path.join(site, file), 'utf8');
+      // No git: the folder is uploaded as the Pages artifact.
+      assert.ok(!fs.existsSync(path.join(site, '.git')));
+      assert.match(read('index.html'), /url=dashboard\//);
+      assert.match(
+        read('dashboard/index.html'),
+        /<base href="\/project\/dashboard\/"/
+      );
+      for (const route of ['audit', 'methodology']) {
+        assert.match(
+          read(`dashboard/${route}/index.html`),
+          /<base href="\/project\/dashboard\/"/
+        );
+      }
+      assert.match(read('404.html'), /<base href="\/project\/dashboard\/"/);
+      assert.equal(
+        JSON.parse(read('dashboard/data/config.json')).repository,
+        'owner/project'
+      );
+      assert.match(
+        fs.readFileSync(output, 'utf8'),
+        /url=https:\/\/owner\.github\.io\/project\/dashboard\//
       );
     } finally {
       server.close();

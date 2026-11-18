@@ -1,0 +1,6 @@
+# Default owner for everything.
+*           @sholtomaud
+
+# Workflows, the Action's definition and security settings.
+/.github/   @sholtomaud
+/action.yml @sholtomaud

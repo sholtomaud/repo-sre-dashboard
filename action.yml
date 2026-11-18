@@ -14,10 +14,17 @@ inputs:
     description: Token for reading the repository and pushing to the Pages branch.
     default: ${{ github.token }}
   path:
-    description: Folder on the Pages branch to publish to, so the dashboard is at /<repository>/<path>/.
+    description: Folder of the site to publish to, so the dashboard is at /<repository>/<path>/. Use . for the site's root.
     default: dashboard
+  publish-to:
+    description: >-
+      How to publish. "pages" (the default) deploys with GitHub's Pages
+      actions: set Settings → Pages → Source to "GitHub Actions", and give the
+      job pages: write and id-token: write. "branch" commits to the branch
+      named below instead, beside anything else on it.
+    default: pages
   branch:
-    description: The Pages branch. Created if it does not exist.
+    description: With publish-to branch, the Pages branch. Created if it does not exist.
     default: gh-pages
   title:
     description: The dashboard's title. Defaults to the repository's name.
@@ -37,6 +44,16 @@ inputs:
   queue-name:
     description: The file-based queue's name on the dashboard.
     default: "Agents' own queue"
+  audit-issues:
+    description: >-
+      Set to true to open an issue for each audit finding, labelled
+      repo-sre-audit. Issues are updated as findings change, closed when the
+      check passes and reopened if it fails again; they are left out of the
+      dashboard's issue figures. Needs issues: write.
+    default: 'false'
+  audit-issues-impact:
+    description: With audit-issues, the lowest impact that gets an issue (high, medium or low).
+    default: medium
   security-days:
     description: Manageability limit for security issues, in days (decimals allowed, e.g. 0.5 for 12 hours). A repository is unmanageable once a new issue of any class would wait longer than its limit.
     default: '7'
@@ -71,22 +88,25 @@ inputs:
 outputs:
   url:
     description: Where the dashboard is published.
-    value: ${{ steps.publish.outputs.url }}
+    value: ${{ steps.site.outputs.url }}
 
 runs:
   using: composite
   steps:
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 24
 
-    - name: Check out the Pages branch
+    - name: Prepare the site
       shell: bash
       env:
         SRE_TOKEN: ${{ inputs.token }}
+        SRE_PUBLISH_TO: ${{ inputs.publish-to }}
         SRE_BRANCH: ${{ inputs.branch }}
-      run: bash "$GITHUB_ACTION_PATH/scripts/checkout-pages.sh"
+        SRE_PATH: ${{ inputs.path }}
+        SRE_QUEUE_OPEN_DIR: ${{ inputs.queue-open-dir }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/prepare.sh"
 
     - name: Collect the data
       shell: bash
@@ -109,12 +129,46 @@ runs:
         SRE_CURRENCY: ${{ inputs.currency }}
         SRE_WHY_TEXT: ${{ inputs.why }}
         SRE_WHY_URL: ${{ inputs.why-url }}
+        SRE_AUDIT_ISSUES: ${{ inputs.audit-issues }}
+        SRE_AUDIT_ISSUES_IMPACT: ${{ inputs.audit-issues-impact }}
       run: node "$GITHUB_ACTION_PATH/tracker/src/main.ts"
 
-    - name: Publish the dashboard
-      id: publish
+    - name: Assemble the site
+      id: site
+      shell: bash
+      env:
+        SRE_TOKEN: ${{ inputs.token }}
+        SRE_PUBLISH_TO: ${{ inputs.publish-to }}
+        SRE_PATH: ${{ inputs.path }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/assemble.sh"
+
+    - name: Push to the Pages branch
+      if: inputs.publish-to == 'branch'
       shell: bash
       env:
         SRE_PATH: ${{ inputs.path }}
         SRE_BRANCH: ${{ inputs.branch }}
       run: bash "$GITHUB_ACTION_PATH/scripts/publish.sh"
+
+    - name: Upload the site
+      if: inputs.publish-to != 'branch'
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      with:
+        path: ${{ runner.temp }}/sre-pages
+
+    - name: Deploy to GitHub Pages
+      if: inputs.publish-to != 'branch'
+      id: deploy
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
+    - name: Summary
+      shell: bash
+      env:
+        URL: ${{ steps.site.outputs.url }}
+        PUBLISH_TO: ${{ inputs.publish-to }}
+        BRANCH: ${{ inputs.branch }}
+      run: |
+        echo "### Dashboard: $URL" >> "$GITHUB_STEP_SUMMARY"
+        if [[ "$PUBLISH_TO" == branch ]]; then
+          echo "If the page is not live, set Settings → Pages → Source to \"Deploy from a branch\", branch \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
+        fi

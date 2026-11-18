@@ -10,63 +10,91 @@ It shows, on one page:
 - **Pull requests and agents.** Who writes the changes: an AI agent's account, a person working with an agent (named in a `Co-Authored-By` trailer or a "Generated with" signature), or a person alone. It shows merge rates and time to merge, and who resolves the issues. Agents are recognised by account type and login (Copilot, Claude, Codex, Devin, any `[bot]`, and any logins you add). Dependency and CI bots are left out.
 - **Delivery.** The four DORA metrics (deployment frequency, lead time, change failure rate, time to restore), each banded from low to elite. Beside them, CI health on the default branch: runs passing, run time, time back to green, and what is failing now.
 - **The codebase.** Languages, files and test files, package ecosystems, workflows and what they run, and branch protection.
-- **An audit**, on its own page. About 28 best-practice checks: CI and tests, branch rules, Dependabot updates with auto-merged patches, supply-chain scanning with Socket, dependency review, CodeQL, OpenSSF Scorecard, pinned actions, least-privilege tokens, a security policy, issue forms and labels, linked fixes, releases and incident labels, instructions and attribution for AI agents, an agent triage workflow, and cost inputs. Each check says what was found and why it matters, and gives a fix to copy, written for your repository's languages and package managers.
+- **An audit**, on its own page. About 30 best-practice checks: CI and tests, branch rules, Dependabot updates with auto-merged patches, supply-chain scanning with Socket, dependency review, CodeQL, OpenSSF Scorecard, pinned actions, least-privilege tokens, a security policy, issue forms and labels, linked fixes, releases and incident labels, AGENTS.md and CLAUDE.md (read for what they cover: build and test commands, test-driven development, how to raise issues, commit rules, security and attribution), an agent triage workflow, and cost inputs. Each check says what was found and why it matters, and gives a fix to copy, written for your repository's languages and package managers.
 
 It started as the [Developer Doomsday Clock](https://github.com/sholtomaud/aws-emulator-bug-tracker) for `aws/aws-emulator`.
 
 ## Quick start
 
-1. Add `.github/workflows/dashboard.yml` to your repository:
+1. In **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. Add `.github/workflows/dashboard.yml` to your repository:
 
    ```yaml
    name: Dashboard
    on:
+     push:
+       branches: [main] # redeploy on every merge
      schedule:
-       - cron: '17 */6 * * *' # every 6 hours; the dashboard shows this schedule
+       - cron: '17 */6 * * *' # and every 6 hours; the dashboard shows this schedule
      workflow_dispatch:
    permissions:
-     contents: write # to push the dashboard to the gh-pages branch
+     contents: read
+     pages: write # deploy to GitHub Pages
+     id-token: write # deploy to GitHub Pages
      issues: read
      pull-requests: read
      actions: read # CI health
      deployments: read # delivery metrics
    concurrency:
-     group: dashboard
+     group: pages
+     cancel-in-progress: false
    jobs:
      publish:
        runs-on: ubuntu-latest
+       environment:
+         name: github-pages
+         url: ${{ steps.dashboard.outputs.url }}
        steps:
-         - uses: sholtomaud/repo-sre-dashboard@v1
+         - id: dashboard
+           uses: sholtomaud/repo-sre-dashboard@v1
    ```
 
-2. Run it once from the Actions tab. It creates a `gh-pages` branch if there is none.
-3. In **Settings → Pages**, set **Source** to **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`.
+3. Run it once from the Actions tab, or push to `main`.
 
-The dashboard is then at `https://<owner>.github.io/<repository>/dashboard/`. The run's summary prints the address.
+The dashboard is then at `https://<owner>.github.io/<repository>/dashboard/`, and the site's root redirects to it. The run's summary and the `github-pages` environment link to it.
+
+### Already publishing a site from a branch?
+
+A Pages deployment replaces the whole site. To keep an existing site that is published from a branch, publish the dashboard into a folder of that branch instead:
+
+```yaml
+- uses: sholtomaud/repo-sre-dashboard@v1
+  with:
+    publish-to: branch # commits to gh-pages:/dashboard, leaving the rest alone
+```
+
+That needs `contents: write` instead of `pages` and `id-token`, and **Settings → Pages → Source** set to **Deploy from a branch**.
+
+### Turning findings into issues
+
+Set `audit-issues: true` (and give the job `issues: write`) to have the audit open an issue for each finding of medium impact or more, with the fix in it. The issues are labelled `repo-sre-audit`, updated as findings change, closed when the check passes, and reopened if it fails again. They are left out of the dashboard's issue figures, so the audit never moves the numbers it measures.
 
 ### Permissions
 
-The Action only reads, except for pushing to the Pages branch. Without `actions: read` or `deployments: read` it still runs, and the audit names the permission that would let it measure CI health or deliveries.
+The Action only reads the repository; it writes nothing but the Pages site. Without `actions: read` or `deployments: read` it still runs, and the audit names the permission that would let it measure CI health or deliveries.
 
 ## How it works
 
 Each run:
 
-1. checks out the `gh-pages` branch (or starts it);
-2. reads the repository's issues, pull requests, files, workflows, CI runs, releases and deployments through the GitHub API with the workflow's own token, runs the audit, and writes the dashboard's data (`data.csv`, `pulls.csv`, `status.json`, `config.json`) under `dashboard/data/`;
-3. copies in the prebuilt dashboard, a static site with no server, and pushes.
+1. reads the repository's issues, pull requests, files, workflows, CI runs, releases and deployments through the GitHub API with the workflow's own token, runs the audit, and writes the dashboard's data (`data.csv`, `pulls.csv`, `status.json`, `config.json`);
+2. puts the prebuilt dashboard beside it, a static site with no server, with a copy of the page for each route and a 404 page, so links straight to `/dashboard/audit` work;
+3. deploys it with GitHub's own `upload-pages-artifact` and `deploy-pages` actions (or, with `publish-to: branch`, commits it to the Pages branch).
 
-Nothing else on the `gh-pages` branch is touched, so it can sit beside an existing site. The runs need no `npm install`: the dashboard ships prebuilt in [`dist/`](dist/), and the tracker is TypeScript that Node runs directly.
+The runs need no `npm install`: the dashboard ships prebuilt in [`dist/`](dist/), and the tracker is TypeScript that Node runs directly. Each run rebuilds the data from the API, so nothing has to be kept between runs; a file-based queue's history is fetched back from the live dashboard.
 
 ## Inputs
 
 | Input                                                                                              | Default                      | What it does                                                                                                                                             |
 | -------------------------------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `token`                                                                                            | `github.token`               | Reads the repository and pushes to the Pages branch.                                                                                                     |
-| `path`                                                                                             | `dashboard`                  | Folder on the Pages branch, so the page is at `/<repository>/<path>/`.                                                                                   |
-| `branch`                                                                                           | `gh-pages`                   | The Pages branch.                                                                                                                                        |
+| `publish-to`                                                                                       | `pages`                      | `pages` deploys with GitHub's Pages actions; `branch` commits to a folder of the Pages branch.                                                           |
+| `path`                                                                                             | `dashboard`                  | Folder of the site, so the page is at `/<repository>/<path>/`. `.` for the root.                                                                         |
+| `branch`                                                                                           | `gh-pages`                   | With `publish-to: branch`, the Pages branch.                                                                                                             |
 | `title`                                                                                            | the repository's name        | The dashboard's title.                                                                                                                                   |
 | `agent-logins`                                                                                     |                              | Extra logins to count as AI agents, comma separated.                                                                                                     |
+| `audit-issues`                                                                                     | `false`                      | `true` opens, updates and closes an issue for each audit finding. Needs `issues: write`.                                                                 |
+| `audit-issues-impact`                                                                              | `medium`                     | The lowest impact that gets an issue: `high`, `medium` or `low`.                                                                                         |
 | `why`, `why-url`                                                                                   |                              | A note on why the repository is tracked, shown on the methodology page.                                                                                  |
 | `queue-open-dir`, `queue-resolved-dir`                                                             |                              | For projects whose agents keep their own file-based queue: the folders of open and resolved issues. Adds a chart of that queue beside the pull requests. |
 | `queue-repository`                                                                                 | this repository              | Where those folders live.                                                                                                                                |
@@ -83,6 +111,10 @@ The output `url` is the dashboard's address.
 - **No keys in the page.** The dashboard is a static page. Agents that act on its findings run in GitHub Actions with their API key stored as a repository secret: the audit's agent triage check gives a workflow for it.
 - **Forecasts are simulations**, calibrated on the last week and labelled as such on the page. The outlook back-tests itself on the record and reports how often its past forecasts were right.
 - **Related work.** [burnscope](https://github.com/asklar/burnscope) also forecasts whether an issue backlog converges, and also refuses to give a date when it does not. It runs locally and reports completeness; this Action adds agent attribution, closure verification, per-class limits, delivery metrics, the audit and a published dashboard.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Report security problems privately: [SECURITY.md](SECURITY.md).
 
 ## Developing
 

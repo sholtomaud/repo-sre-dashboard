@@ -1,0 +1,7 @@
+# Socket screens new and changed dependencies on pull requests for
+# malware, install scripts, network access and typosquats. Needs the Socket
+# GitHub App installed on the repository (free for open source).
+version: 2
+githubApp:
+  enabled: true
+  dependencyOverviewEnabled: true

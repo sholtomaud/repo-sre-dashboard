@@ -207,7 +207,7 @@ export interface Profile {
   truncated: boolean;
   keyFiles: Record<KeyFile, string | null>;
   lockfiles: string[];
-  /** Package ecosystems found, with the folder of the first manifest. */
+  /** Package ecosystems found, one entry per folder with a manifest. */
   ecosystems: { name: string; directory: string }[];
   issueTemplates: string[] | null;
   workflows: WorkflowFile[];
@@ -224,9 +224,56 @@ export interface Profile {
     createdAt: string;
     state: string | null;
   }[];
+  /** The repository's labels, by name. */
+  labels: string[];
+  /** Instruction files for coding agents, with their text. */
+  agentDocs: { path: string; text: string }[];
   /** Reads the token could not make. */
   denied: Denied[];
 }
+
+/** Files coding agents read before they work, in the order they are judged. */
+export const AGENT_DOCS =
+  /^(agents\.md|claude\.md|\.claude\/claude\.md|\.github\/copilot-instructions\.md|gemini\.md|\.cursorrules)$/i;
+
+/** What a good instruction file for coding agents covers. */
+export const AGENT_DOC_TOPICS: { id: string; name: string; pattern: RegExp }[] =
+  [
+    {
+      id: 'build-test',
+      name: 'how to build and test',
+      pattern:
+        /^#+\s*(build|test|commands|development|setup)|\b(npm|pnpm|yarn|bun) (run )?test\b|\bpytest\b|\bgo test\b|\bcargo test\b|\bmake test\b|\bgradlew? test\b|\bmvn\b.*\btest/im,
+    },
+    {
+      id: 'tdd',
+      name: 'test-driven development',
+      pattern:
+        /\bTDD\b|test[- ]driven|failing test first|write (a |the )?(failing )?tests? first|red[,/ -]+green/i,
+    },
+    {
+      id: 'issues',
+      name: 'how to raise issues',
+      pattern:
+        /^#+\s*(raising|filing|reporting|opening|writing)\s+issues|\bissue forms?\b/im,
+    },
+    {
+      id: 'changes',
+      name: 'commit and pull request rules',
+      pattern:
+        /conventional commits?|\bfixes #|^#+\s*(commits?|pull requests?)/im,
+    },
+    {
+      id: 'safety',
+      name: 'security and secrets',
+      pattern: /\bsecrets?\b|\bcredentials?\b|\bsecurity\b/i,
+    },
+    {
+      id: 'attribution',
+      name: 'attributing agent work',
+      pattern: /co-authored-by/i,
+    },
+  ];
 
 interface RepoResponse {
   description: string | null;
@@ -322,6 +369,42 @@ export async function readProfile(
       )
     )
   ).filter((w): w is WorkflowFile => w !== null);
+
+  // Instruction files for agents: read, so the audit can judge what they say.
+  const agentDocs = (
+    await Promise.all(
+      paths
+        .filter((p) => AGENT_DOCS.test(p))
+        .slice(0, 6)
+        .map((path) =>
+          guarded(
+            denied,
+            'agent instructions',
+            'contents: read',
+            null,
+            async () => {
+              const file = await client.rest<{ content: string }>(
+                `${base}/contents/${path}?ref=${encodeURIComponent(branch)}`
+              );
+              return file
+                ? {
+                    path,
+                    text: Buffer.from(file.content, 'base64')
+                      .toString('utf8')
+                      .slice(0, 100_000),
+                  }
+                : null;
+            }
+          )
+        )
+    )
+  ).filter((d): d is { path: string; text: string } => d !== null);
+
+  const labels = await guarded(denied, 'labels', 'issues: read', [], async () =>
+    (await client.restAll<{ name: string }>(`${base}/labels`, 300)).map(
+      (l) => l.name
+    )
+  );
 
   const since = new Date(now.getTime() - windowDays * MS_PER_DAY)
     .toISOString()
@@ -425,14 +508,27 @@ export async function readProfile(
     truncated: tree?.truncated ?? false,
     keyFiles,
     lockfiles: own.filter((p) => LOCKFILE.test(p)),
-    ecosystems: ECOSYSTEMS.flatMap(([name, pattern]) => {
-      const first = own
-        .filter((p) => pattern.test(p))
-        .sort((a, b) => a.split('/').length - b.split('/').length)[0];
-      return first
-        ? [{ name, directory: '/' + first.split('/').slice(0, -1).join('/') }]
-        : [];
-    }),
+    // Every folder with a manifest, shallowest first, up to 10 per
+    // ecosystem: Dependabot needs an entry for each.
+    ecosystems: ECOSYSTEMS.flatMap(([name, pattern]) =>
+      [
+        ...new Set(
+          own
+            .filter(
+              (p) =>
+                pattern.test(p) &&
+                !/(^|\/)(fixtures?|examples?|samples?)\//i.test(p)
+            )
+            .map((p) => '/' + p.split('/').slice(0, -1).join('/'))
+        ),
+      ]
+        .sort(
+          (a, b) =>
+            a.split('/').length - b.split('/').length || a.localeCompare(b)
+        )
+        .slice(0, 10)
+        .map((directory) => ({ name, directory }))
+    ),
     issueTemplates: templates.length ? templates : null,
     workflows,
     branch: {
@@ -456,6 +552,8 @@ export async function readProfile(
         prerelease: r.prerelease,
       })),
     deployments,
+    labels,
+    agentDocs,
     denied: dedupe(denied),
   };
 }
@@ -495,7 +593,7 @@ export function profileSummary(profile: Profile) {
     files_truncated: profile.truncated,
     key_files: profile.keyFiles,
     lockfiles: profile.lockfiles.length,
-    ecosystems: profile.ecosystems.map((e) => e.name),
+    ecosystems: [...new Set(profile.ecosystems.map((e) => e.name))],
     workflows: profile.workflows.map((w) => ({
       name: w.name,
       path: w.path,
@@ -510,6 +608,13 @@ export function profileSummary(profile: Profile) {
       requires_review: profile.branch.requiresReview,
       requires_checks: profile.branch.requiresChecks,
     },
+    labels: profile.labels.length,
+    agent_docs: profile.agentDocs.map((d) => ({
+      path: d.path,
+      covers: AGENT_DOC_TOPICS.filter((t) => t.pattern.test(d.text)).map(
+        (t) => t.id
+      ),
+    })),
     denied: profile.denied,
   };
 }

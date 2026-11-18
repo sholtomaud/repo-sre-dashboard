@@ -1,25 +1,41 @@
 # This repository's own dashboard, published by the Action it contains.
+# It redeploys whenever CI passes on main, so a merged change to the
+# dashboard goes live by itself, and every six hours for fresh data.
 name: Dashboard
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write
-  issues: read
+  contents: read
+  issues: write # the audit opens and closes its own issues
   pull-requests: read
   actions: read
   deployments: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: dashboard
+  group: pages
   cancel-in-progress: false
 
 jobs:
   publish:
+    # After CI, only when it passed: a red main is never published.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.dashboard.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: dashboard
+        uses: ./
+        with:
+          audit-issues: true
