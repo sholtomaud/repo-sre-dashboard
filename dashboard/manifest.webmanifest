@@ -1,6 +1,6 @@
 {
-  "name": "Developer Doomsday Clock",
-  "short_name": "Dev Doomsday",
+  "name": "Repo SRE Dashboard",
+  "short_name": "Repo health",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
