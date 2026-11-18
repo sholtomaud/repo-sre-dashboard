@@ -12,7 +12,7 @@
     "lint": "prettier --check tracker action.yml"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.6",
     "prettier": "^3.6.0",
     "typescript": "^7.0.2"
   },
