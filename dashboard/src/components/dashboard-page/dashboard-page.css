@@ -6,30 +6,36 @@
   margin: 0 auto;
   padding: 2.5rem 1rem 3rem;
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 @media (min-width: 640px) {
   :host .page {
     padding: 3rem 1.5rem 4rem;
   }
 }
+/* Grid items may shrink below their content (tables, the section links). */
+:host .page > *,
+:host .section > * {
+  min-width: 0;
+}
 :host .hero {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1.5rem;
-  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
 }
 :host h1 {
   margin: 0.5rem 0 0.75rem;
-  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-size: clamp(1.875rem, 4.5vw, 2.75rem);
   font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 :host .lede {
   margin: 0;
-  max-width: 56ch;
+  max-width: 62ch;
   color: var(--ink-2);
   font-size: 1.0625rem;
   line-height: 1.55;
@@ -39,211 +45,207 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-:host .hero-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-:host .status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0.375rem 0.875rem 0.375rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-:host .status-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 800;
-  line-height: 1;
-}
-:host .status[data-level='safe'] .status-icon {
-  background: var(--good);
-}
-:host .status[data-level='elevated'] .status-icon {
-  background: var(--warning);
-  color: #0b0b0b;
-}
-:host .status[data-level='severe'] .status-icon {
-  background: var(--serious);
-}
-:host .status[data-level='critical'] .status-icon {
-  background: var(--critical);
-}
 :host .as-of {
   margin: 0;
-  font-size: 0.8125rem;
   color: var(--ink-muted);
+  font-size: 0.875rem;
 }
 :host .as-of.error {
   color: var(--critical-ink);
+}
+
+/* Section links: scroll sideways on narrow screens rather than wrap. */
+:host .jump {
+  position: sticky;
+  top: 3.75rem;
+  z-index: 5;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+  padding: 0.375rem 0.25rem;
+  background: var(--nav-bg);
+  backdrop-filter: blur(8px);
+  scrollbar-width: none;
+}
+:host .jump a {
+  flex: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
   font-weight: 600;
+  text-decoration: none;
 }
-:host .grid-top {
+:host .jump a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+:host .jump .jump-audit {
+  margin-left: auto;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+:host .section {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
+  scroll-margin-top: 7rem;
 }
-@media (min-width: 900px) {
-  :host .grid-top {
-    grid-template-columns: 1fr 1fr;
-  }
+:host .section-head h2 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 1.375rem;
+  letter-spacing: -0.015em;
 }
-:host .panel {
-  padding: 1.25rem;
-  min-width: 0;
-}
-@media (min-width: 640px) {
-  :host .panel {
-    padding: 1.5rem 1.75rem 1.75rem;
-  }
-}
-:host .panel-head {
-  margin-bottom: 1.25rem;
-}
-:host .panel-head h2 {
+:host .section-head p {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-}
-:host .panel-head p {
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
-}
-:host [aria-busy='true'] doomsday-clock,
-:host [aria-busy='true'] velocity-gauge {
-  opacity: 0.4;
-}
-:host .tiles {
-  display: grid;
-  gap: clamp(0.75rem, 2vw, 1.25rem);
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 40vw), 1fr));
-}
-:host .tile {
-  padding: 1.125rem 1.25rem;
-}
-:host .tile p {
-  margin: 0;
-}
-:host .tile-label {
-  font-size: 0.8125rem;
   color: var(--ink-2);
 }
-:host .tile-value {
-  margin-top: 0.375rem !important;
-  font-size: 1.875rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+:host .panel {
+  padding: 1.25rem 1.5rem;
+}
+
+/* Key figures. */
+:host .kpis {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+}
+:host .kpi {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  padding: 1rem 1.125rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+:host a.kpi:hover {
+  border-color: var(--axis);
+}
+:host .kpi p {
+  margin: 0;
+}
+:host .kpi-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+:host .kpi-value {
+  font-size: 2rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
   line-height: 1.15;
 }
-:host .tile-delta {
-  margin-top: 0.25rem !important;
-  min-height: 1.2em;
+:host .kpi-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+:host .kpi-note {
   font-size: 0.8125rem;
   color: var(--ink-muted);
+  line-height: 1.4;
 }
-:host .tile-delta.good {
+:host .kpi-spark {
+  height: 28px;
+  margin-top: 0.25rem;
+}
+:host .kpi-spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Tone: an icon and words carry the meaning; colour only reinforces it. */
+:host .tone-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--ink-muted);
+}
+:host [data-tone='good'] .tone-icon {
+  background: var(--good);
+}
+:host [data-tone='warn'] .tone-icon {
+  background: var(--warning);
+  color: #0b0b0b;
+}
+:host [data-tone='bad'] .tone-icon {
+  background: var(--critical);
+}
+:host .kpi-verdict[data-tone='good'] {
   color: var(--good-ink);
 }
-:host .tile-delta.bad {
+:host .kpi-verdict[data-tone='bad'] {
   color: var(--critical-ink);
 }
+
+/* What needs attention. */
+:host .attention {
+  padding: 1.125rem 1.5rem 1.25rem;
+}
+:host .attention-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+:host .attention-head h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+:host .attention-link {
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: inherit;
+  text-underline-offset: 3px;
+}
+:host .findings {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.875rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+:host .finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  line-height: 1.45;
+}
+:host .finding .tone-icon {
+  margin-top: 0.125rem;
+}
+:host .finding a {
+  color: inherit;
+  text-decoration: none;
+}
+:host .finding a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 :host .foot {
-  margin-top: 0.5rem;
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
 }
 :host .foot a {
   color: var(--ink-2);
-  text-decoration: underline;
   text-underline-offset: 3px;
-}
-:host .loops {
-  display: grid;
-  gap: 1.25rem;
-}
-@media (min-width: 900px) {
-  :host .loops {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-:host .version-note {
-  margin: 1.25rem 0 0;
-  padding-top: 0.875rem;
-  border-top: 1px solid var(--grid);
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
-}
-:host .version-note a {
-  color: var(--ink-2);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-/* Rally cluster: one large dial with two smaller ones beneath it. */
-:host .dials {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem 1rem;
-  align-items: start;
-}
-:host .dials [data-dial='combined'] {
-  grid-column: 1 / -1;
-}
-@media (max-width: 480px) {
-  :host .dials {
-    grid-template-columns: 1fr;
-  }
-}
-@media (min-width: 900px) {
-  :host .loops .loop-combined {
-    grid-column: 1 / -1;
-  }
-}
-:host .clock-column {
-  display: grid;
-  gap: 1.25rem;
-  align-content: start;
-  min-width: 0;
-}
-:host replay-control {
-  margin-top: 1.25rem;
-}
-:host .forecast-note {
-  margin: 0.5rem 0 0;
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
-}
-:host .forecast-note:empty {
-  display: none;
-}
-/* One queue (no file-based queue configured): nothing to combine, so the
-   issues' own dial and doom loop stand alone. */
-:host[data-queues='one'] [data-dial='combined'],
-:host[data-queues='one'] [data-dial='agents'],
-:host[data-queues='one'] [data-queue-loop='combined'],
-:host[data-queues='one'] [data-queue-loop='agents'],
-:host[data-queues='one'] queue-compare,
-:host[data-queues='one'] weight-slider,
-:host[data-queues='one'] .version-note,
-:host[data-queues='one'] [data-clock-note],
-:host[data-queues='one'] [data-tile='attention'],
-:host[data-queues='one'] [data-combined-word] {
-  display: none;
-}
-:host[data-queues='one'] .dials {
-  grid-template-columns: 1fr;
-}
-:host[data-queues='one'] .loops {
-  grid-template-columns: 1fr;
 }

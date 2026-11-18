@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDuration, parsePractices, parseResponses } from './health.ts';
+import { formatDuration, parseResponses } from './health.ts';
 
 test('response times are read from status.json', () => {
   const r = parseResponses({
@@ -15,27 +15,6 @@ test('response times are read from status.json', () => {
   assert.equal(r.resolution.medianHours, null);
   assert.equal(r.awaitingResponse, 3);
   assert.equal(parseResponses({}), null);
-});
-
-test('practices are read safely', () => {
-  const practices = parsePractices({
-    practices: [
-      {
-        id: 'labels',
-        title: 'Labels',
-        status: 'improve',
-        evidence: '20%',
-        recommendation: 'Label',
-        docs: 'https://docs.github.com/x',
-      },
-      { id: 'odd', title: 'Odd', status: 'weird', docs: 'javascript:alert(1)' },
-      { nope: true },
-    ],
-  });
-  assert.equal(practices.length, 2);
-  assert.equal(practices[1].status, 'unknown');
-  assert.equal(practices[1].docs, '');
-  assert.deepEqual(parsePractices(null), []);
 });
 
 test('durations read naturally', () => {

@@ -17,8 +17,7 @@ export class NavComponent extends BaseComponent {
         this.querySelector<HTMLAnchorElement>('[data-source-link]')!;
       source.hidden = !config.repositoryUrl;
       source.href = config.repositoryUrl;
-      this.querySelector('[data-brand]')!.textContent = config.title;
-      document.title = `${config.title} · ${config.repository}`;
+      document.title = `${config.title} · Repo SRE Dashboard`;
     });
     // Mark the link of the current page; see the aria-current rule in the CSS.
     Router.getInstance().addEventListener('navigate', (event) => {

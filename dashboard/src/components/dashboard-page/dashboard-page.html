@@ -2,7 +2,7 @@
   <header class="hero">
     <div>
       <p class="eyebrow">
-        AI replacement index ·
+        Repository health ·
         <a
           data-tracked-link
           class="hero-link"
@@ -10,148 +10,100 @@
           rel="noopener noreferrer"
         ></a>
       </p>
-      <h1>Developer Doomsday Clock</h1>
-      <p class="lede">
-        How close are AI agents to resolving every issue in
-        <span data-repo-name></span>? The clock reads midnight when they resolve
-        all of them. <span data-why hidden></span>
+      <h1 data-title>Repository health</h1>
+      <p class="lede" data-lede>
+        Issues and pull requests, who resolves them (AI agents or people), how
+        fast changes are delivered, where the backlog is heading, and how to set
+        the repository up to do better.
       </p>
     </div>
-    <div class="hero-meta">
-      <p class="status" data-status hidden>
-        <span class="status-icon" data-status-icon aria-hidden="true"></span>
-        <span data-status-label></span>
-      </p>
-      <p class="as-of" data-as-of role="status">Loading the latest numbers…</p>
-    </div>
+    <p class="as-of" data-as-of role="status">Loading the latest numbers…</p>
   </header>
 
-  <section class="grid-top" data-content aria-busy="true">
-    <div class="clock-column">
-      <article class="card panel">
-        <header class="panel-head">
-          <h2>Developer Doomsday Clock</h2>
-          <p>
-            Hours to midnight = (1 −
-            <span data-combined-word>combined </span>agent resolution share) ×
-            24.
-            <span data-clock-note></span>
-          </p>
-        </header>
-        <doomsday-clock data-size="large"></doomsday-clock>
-        <p class="version-note">
-          Version 2 combines the public issues with the agents' own queue.
-          Version 1 counted the public issues only.
-          <a href="/methodology">What changed</a>
-        </p>
-      </article>
-      <weight-slider></weight-slider>
-    </div>
+  <nav class="jump" aria-label="Sections">
+    <a href="#overview">Overview</a>
+    <a href="#outlook">Outlook</a>
+    <a href="#issues">Issues</a>
+    <a href="#agents">Pull requests and agents</a>
+    <a href="#delivery">Delivery</a>
+    <a href="#codebase">Codebase</a>
+    <a href="/audit" class="jump-audit">Audit →</a>
+  </nav>
 
-    <article class="card panel">
-      <header class="panel-head">
-        <h2>Resolution velocity</h2>
-        <p>
-          Issues resolved per day by agents (orange) and humans (purple). The
-          blue mark is new issues; the outer arc is the gap.
-        </p>
+  <section id="overview" class="section" data-content aria-busy="true">
+    <h2 class="sr-only">Overview</h2>
+    <div class="kpis" data-kpis></div>
+    <article class="card attention">
+      <header class="attention-head">
+        <h3>What needs attention</h3>
+        <a href="/audit" class="attention-link" data-audit-link
+          >Full audit<span data-audit-score></span
+        ></a>
       </header>
-      <div class="dials">
-        <velocity-gauge data-dial="combined" data-size="large"></velocity-gauge>
-        <velocity-gauge data-dial="agents" data-size="small"></velocity-gauge>
-        <velocity-gauge data-dial="public" data-size="small"></velocity-gauge>
-      </div>
-      <replay-control></replay-control>
-      <p class="forecast-note" data-forecast-note></p>
+      <ul class="findings" data-findings>
+        <li class="finding" data-tone="neutral">Loading…</li>
+      </ul>
     </article>
   </section>
 
-  <outlook-panel></outlook-panel>
-
-  <section
-    class="loops"
-    aria-label="Bug doom loop: combined and for each queue"
-  >
-    <doom-loop data-queue-loop="combined" class="loop-combined"></doom-loop>
-    <doom-loop data-queue-loop="agents"></doom-loop>
-    <doom-loop data-queue-loop="public"></doom-loop>
+  <section id="outlook" class="section">
+    <outlook-panel></outlook-panel>
   </section>
 
-  <section class="tiles" aria-label="Indices">
-    <div class="card tile">
-      <p class="tile-label">Agent resolution share</p>
-      <p class="tile-value tabular" data-stat="share">—</p>
-      <p class="tile-delta" data-stat="share-note"></p>
-    </div>
-    <div class="card tile">
-      <p class="tile-label">Time to first response</p>
-      <p class="tile-value tabular" data-stat="first-response">—</p>
-      <p class="tile-delta" data-stat="first-response-note"></p>
-    </div>
-    <div class="card tile">
-      <p class="tile-label">Time to resolution</p>
-      <p class="tile-value tabular" data-stat="resolution">—</p>
-      <p class="tile-delta" data-stat="resolution-note"></p>
-    </div>
-    <div class="card tile" data-tile="attention">
-      <p class="tile-label">Public attention index</p>
-      <p class="tile-value tabular" data-stat="attention">—</p>
-      <p class="tile-delta" data-stat="attention-note"></p>
-    </div>
-    <div class="card tile">
-      <p class="tile-label">Verified closure rate</p>
-      <p class="tile-value tabular" data-stat="verified">—</p>
-      <p class="tile-delta" data-stat="verified-note"></p>
-    </div>
-    <div class="card tile">
-      <p class="tile-label">Reopen rate</p>
-      <p class="tile-value tabular" data-stat="reopen">—</p>
-      <p class="tile-delta" data-stat="reopen-note"></p>
-    </div>
-    <div class="card tile">
-      <p class="tile-label">Open backlog</p>
-      <p class="tile-value tabular" data-stat="open">—</p>
-      <p class="tile-delta" data-stat="open-note"></p>
-    </div>
-  </section>
-
-  <queue-compare></queue-compare>
-
-  <closure-evidence></closure-evidence>
-
-  <pull-panel hidden></pull-panel>
-
-  <practice-list></practice-list>
-
-  <article class="card panel">
-    <header class="panel-head">
-      <h2><span data-issues-name>Issues</span> over time</h2>
-      <p>Running totals for <span data-tracked-name></span>, by day (UTC)</p>
-    </header>
-    <trend-chart data-trend="public"></trend-chart>
-  </article>
-
-  <article class="card panel" data-queue-trend hidden>
-    <header class="panel-head">
-      <h2>Agents' own queue over time</h2>
+  <section id="issues" class="section">
+    <header class="section-head">
+      <h2>Issues</h2>
       <p>
-        Files in the repository's two issue folders at the end of each day
-        (UTC), from the first commit
+        The backlog over time, the facts for each class, and how issues are
+        closed.
       </p>
     </header>
-    <trend-chart data-trend="agents"></trend-chart>
-  </article>
+    <article class="card panel">
+      <header class="panel-head">
+        <h3>Open and resolved over time</h3>
+        <p>
+          Open issues, and running totals resolved by AI agents and by people.
+        </p>
+      </header>
+      <trend-chart data-trend="public"></trend-chart>
+    </article>
+    <class-table></class-table>
+    <closure-evidence></closure-evidence>
+  </section>
+
+  <section id="agents" class="section">
+    <header class="section-head">
+      <h2>Pull requests and agents</h2>
+      <p>
+        Who writes the changes and resolves the issues: AI agents or people.
+      </p>
+    </header>
+    <pull-panel hidden></pull-panel>
+    <article class="card panel" data-queue-trend hidden>
+      <header class="panel-head">
+        <h3 data-queue-title>Agents' own queue</h3>
+        <p>
+          The agents' file-based issue queue: open issues and running totals
+          resolved.
+        </p>
+      </header>
+      <trend-chart data-trend="agents"></trend-chart>
+    </article>
+  </section>
+
+  <section id="delivery" class="section">
+    <delivery-panel hidden></delivery-panel>
+  </section>
+
+  <section id="codebase" class="section">
+    <repo-profile hidden></repo-profile>
+  </section>
 
   <footer class="foot">
-    <p>
-      <span data-schedule>Updated</span> by GitHub Actions from the repository's
-      issue tracker and repository. Raw data:
-      <a data-csv-link target="_blank" rel="noopener noreferrer">data.csv</a> ·
-      <a data-project-link target="_blank" rel="noopener noreferrer"
-        >Repo SRE Dashboard</a
-      >
-      ·
-      <a href="/methodology">How it is calculated</a>
-    </p>
+    <a data-csv-link>Download data.csv</a>
+    <a href="/methodology">How it is measured</a>
+    <a data-project-link target="_blank" rel="noopener noreferrer"
+      >Repo SRE Dashboard</a
+    >
   </footer>
 </main>

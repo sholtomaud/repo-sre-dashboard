@@ -1,158 +1,89 @@
 import { BaseComponent } from '../../core/base-component.ts';
-import {
-  loadSnapshot,
-  nextUpdate,
-  threatLevel,
-  type DoomLoop,
-  type Snapshot,
-  type Velocity,
-  type ThreatLevel,
-} from '../../services/metrics.ts';
+import { loadSnapshot, type Snapshot } from '../../services/metrics.ts';
 import {
   formatCount,
   formatDate,
   formatDateTime,
-  formatTimeUtc,
   formatPercent,
+  formatRate,
+  formatSigned,
+  formatTimeUtc,
 } from '../../lib/format.ts';
+import { nextUpdate } from '../../services/metrics.ts';
 import {
   DATA_CSV_PATH,
   PROJECT_URL,
   loadConfig,
   type DashboardConfig,
 } from '../../lib/config.ts';
-import type { DoomsdayClockComponent } from '../doomsday-clock/doomsday-clock.ts';
-import type { VelocityGaugeComponent } from '../velocity-gauge/velocity-gauge.ts';
-import type { TrendChartComponent } from '../trend-chart/trend-chart.ts';
-import type { DoomLoopComponent } from '../doom-loop/doom-loop.ts';
-import '../doomsday-clock/doomsday-clock.ts';
-import '../velocity-gauge/velocity-gauge.ts';
-import '../trend-chart/trend-chart.ts';
-import '../doom-loop/doom-loop.ts';
-import '../queue-compare/queue-compare.ts';
-import '../closure-evidence/closure-evidence.ts';
-import type { QueueCompareComponent } from '../queue-compare/queue-compare.ts';
-import type { ClosureEvidenceComponent } from '../closure-evidence/closure-evidence.ts';
+import { svg } from '../../lib/svg.ts';
+import { closureSummary, loadAgentQueue } from '../../services/insights.ts';
 import {
-  closureSummary,
-  loadAgentQueue,
-  strictRatios,
-  type AgentQueue,
-  type StrictRatios,
-} from '../../services/insights.ts';
+  agentMergedShare,
+  formatDuration,
+  parsePulls,
+  parseResponses,
+} from '../../services/health.ts';
 import {
-  DEFAULT_PUBLIC_WEIGHT,
-  attentionIndex,
-  backlogShare,
-  combinedAgentShare,
-  combinedDoomLoop,
-  combinedHoursToMidnight,
-  combinedVelocity,
-  effortShare,
-  queueAgentShare,
-  weightMarks,
-  type Queue,
-  type WeightMark,
-} from '../../services/combined.ts';
-import '../weight-slider/weight-slider.ts';
-import '../practice-list/practice-list.ts';
-import '../outlook-panel/outlook-panel.ts';
-import '../pull-panel/pull-panel.ts';
-import type { PullPanelComponent } from '../pull-panel/pull-panel.ts';
-import type { OutlookPanelComponent } from '../outlook-panel/outlook-panel.ts';
+  CLASSES,
+  findings,
+  parseAudit,
+  parseCi,
+  parseClasses,
+  parseDelivery,
+  parseRepo,
+  type Tone,
+} from '../../services/report.ts';
 import {
   backtest,
   buildOutlook,
   parseClassHistory,
   totalHistory,
 } from '../../services/outlook.ts';
-import type { PracticeListComponent } from '../practice-list/practice-list.ts';
-import {
-  formatDuration,
-  parsePractices,
-  parsePulls,
-  parseResponses,
-} from '../../services/health.ts';
-import '../replay-control/replay-control.ts';
-import type { ReplayControlComponent } from '../replay-control/replay-control.ts';
-import {
-  buildFrames,
-  forecastFrames,
-  frameAt,
-  peakRate,
-  type Frame,
-  type FrameForecast,
-} from '../../services/replay.ts';
-import {
-  calibrateQueue,
-  horizon,
-  runEnsemble,
-  summarise,
-  type Ensemble,
-  type QueueCalibration,
-  MIN_VOLATILITY,
-  type QueueState,
-  type WeightRule,
-} from '../../services/forecast.ts';
 import { loadSimulator } from '../../lib/gssk-simulator.ts';
-
-/** Simulated runs, and days simulated before the horizon cuts them short. */
-const FORECAST_RUNS = 200;
-const FORECAST_DAYS = 180;
-/** The forecast's second queue when the repository has only its issues. */
-const EMPTY_QUEUE: QueueCalibration = {
-  start: { open: 0, byAgents: 0, byHumans: 0 },
-  arrivals: { count: 0, days: 0 },
-  agents: { count: 0, days: 0 },
-  humans: { count: 0, days: 0 },
-  volatility: MIN_VOLATILITY,
-};
-import { WeightSliderComponent } from '../weight-slider/weight-slider.ts';
+import { formatFrequency } from '../delivery-panel/delivery-panel.ts';
+import type { TrendChartComponent } from '../trend-chart/trend-chart.ts';
+import type { ClosureEvidenceComponent } from '../closure-evidence/closure-evidence.ts';
+import type { PullPanelComponent } from '../pull-panel/pull-panel.ts';
+import type { OutlookPanelComponent } from '../outlook-panel/outlook-panel.ts';
+import type { ClassTableComponent } from '../class-table/class-table.ts';
+import type { DeliveryPanelComponent } from '../delivery-panel/delivery-panel.ts';
+import type { RepoProfileComponent } from '../repo-profile/repo-profile.ts';
+import '../trend-chart/trend-chart.ts';
+import '../closure-evidence/closure-evidence.ts';
+import '../pull-panel/pull-panel.ts';
+import '../outlook-panel/outlook-panel.ts';
+import '../class-table/class-table.ts';
+import '../delivery-panel/delivery-panel.ts';
+import '../repo-profile/repo-profile.ts';
 import template from './dashboard-page.html?raw';
 import style from './dashboard-page.css?raw';
 
-const NO_LOOP: DoomLoop = {
-  ratio: null,
-  level: 'unknown',
-  history: [],
-  doublingDays: null,
-  clearDays: null,
+const ICONS: Record<Tone, string> = {
+  good: '✓',
+  warn: '!',
+  bad: '✕',
+  neutral: '·',
 };
 
-const NO_VELOCITY: Velocity = {
-  agent: 0,
-  human: 0,
-  arrivals: 0,
-  netBacklog: 0,
-  days: 0,
-  since: '',
-};
-
-const STATUS: Record<ThreatLevel, { icon: string; label: string }> = {
-  safe: { icon: '✓', label: 'Humans hold the line' },
-  elevated: { icon: '!', label: 'Elevated: agents gaining ground' },
-  severe: { icon: '!', label: 'Severe: agents resolving most issues' },
-  critical: { icon: '✕', label: 'Critical: midnight is near' },
-};
+interface Kpi {
+  label: string;
+  value: string;
+  verdict?: { tone: Tone; text: string };
+  note: string;
+  /** A small trend line, oldest first. */
+  spark?: number[];
+  href?: string;
+}
 
 /**
- * The dashboard: the Developer Doomsday Clock, the velocity dials and the
- * doom loops, each combined and per queue, with the indices and trends.
+ * The dashboard: key figures and what needs attention, then the outlook,
+ * issues, pull requests and agents, delivery and the codebase.
  */
 export class DashboardPageComponent extends BaseComponent {
   static tagName = 'dashboard-page';
 
   private config: DashboardConfig | null = null;
-
-  /** The file-based queue's name, when there is one. */
-  private get queueName(): string {
-    return this.config?.queue?.name ?? "Agents' own queue";
-  }
-
-  /** The issues' name: "Public GitHub issues" beside a queue, else "Issues". */
-  private get issuesName(): string {
-    return this.config?.queue ? 'Public GitHub issues' : 'Issues';
-  }
 
   constructor() {
     super(template, style);
@@ -164,33 +95,13 @@ export class DashboardPageComponent extends BaseComponent {
     const tracked = this.querySelector<HTMLAnchorElement>(
       '[data-tracked-link]'
     )!;
-    tracked.href = config.issuesUrl || config.repositoryUrl;
+    tracked.href = config.repositoryUrl || config.issuesUrl;
     tracked.textContent = config.repository;
-    this.querySelector('[data-tracked-name]')!.textContent = config.repository;
-    this.querySelector('[data-repo-name]')!.textContent = config.repository;
-    this.querySelector('[data-issues-name]')!.textContent = config.queue
-      ? 'Public GitHub issues'
-      : 'Issues';
-    this.querySelector('h1')!.textContent = config.title;
-    if (config.why) {
-      const why = this.querySelector<HTMLElement>('[data-why]')!;
-      why.hidden = false;
-      const link = document.createElement('a');
-      link.href = '/methodology';
-      link.className = 'hero-link';
-      link.textContent = 'Why this repository?';
-      why.replaceChildren(link);
-    }
+    this.querySelector('[data-title]')!.textContent = config.title;
     this.querySelector<HTMLAnchorElement>('[data-csv-link]')!.href =
       DATA_CSV_PATH;
     this.querySelector<HTMLAnchorElement>('[data-project-link]')!.href =
       PROJECT_URL;
-    // With one queue there is nothing to combine: show its panels alone.
-    this.dataset.queues = config.queue ? 'two' : 'one';
-    if (!config.queue) {
-      this.querySelector<HTMLElement>('[data-dial="public"]')!.dataset.size =
-        'large';
-    }
 
     const asOf = this.querySelector<HTMLElement>('[data-as-of]')!;
     try {
@@ -202,347 +113,321 @@ export class DashboardPageComponent extends BaseComponent {
   }
 
   private render(snapshot: Snapshot) {
-    const { latest, velocity } = snapshot;
-    const asOf = snapshot.status?.updatedAt;
-
     const tracker = snapshot.status;
+    const raw = tracker?.raw;
     const next = tracker && nextUpdate(tracker);
     this.querySelector('[data-as-of]')!.textContent = tracker
       ? `Data as of ${formatDateTime(tracker.updatedAt)} · updated ${tracker.schedule.description}` +
         (next ? ` · next around ${formatTimeUtc(next)}` : '')
-      : `Data as of ${formatDate(latest.date)} (UTC)`;
-    this.querySelector('[data-schedule]')!.textContent = tracker
-      ? `Updated ${tracker.schedule.description}`
-      : 'Updated';
+      : `Data as of ${formatDate(snapshot.latest.date)} (UTC)`;
 
-    const publicQueue: Queue = {
-      latest,
-      velocity,
-      loop: snapshot.doomLoop,
-    };
+    const repo = parseRepo(raw);
+    if (repo?.description) {
+      this.querySelector('[data-lede]')!.textContent = repo.description;
+    }
+    const classes = parseClasses(raw);
+    const ci = parseCi(raw);
+    const delivery = parseDelivery(raw);
+    const audit = parseAudit(raw);
+    const pulls = parsePulls(raw);
+    const responses = parseResponses(raw);
+    const closures = closureSummary(snapshot.latest);
 
-    const closures = closureSummary(latest);
+    this.renderKpis(snapshot, {
+      classes,
+      delivery,
+      audit,
+      pulls,
+      responses,
+      closures,
+    });
+    this.renderFindings(
+      findings({ classes, ci, flowRatio: snapshot.doomLoop.ratio, audit })
+    );
+    const score = this.querySelector('[data-audit-score]')!;
+    score.textContent = audit?.score != null ? ` · ${audit.score}/100` : '';
+
+    this.querySelector<TrendChartComponent>('[data-trend="public"]')!.points =
+      snapshot.history;
+    this.querySelector<ClassTableComponent>('class-table')!.classes = classes;
     const evidence =
       this.querySelector<ClosureEvidenceComponent>('closure-evidence')!;
     evidence.closures = closures;
     evidence.issues = tracker?.issues;
     evidence.update();
-
-    this.querySelector<TrendChartComponent>('[data-trend="public"]')!.points =
-      snapshot.history;
+    this.querySelector<PullPanelComponent>('pull-panel')!.pulls = pulls;
+    this.querySelector<DeliveryPanelComponent>('delivery-panel')!.show(
+      delivery,
+      ci
+    );
+    this.querySelector<RepoProfileComponent>('repo-profile')!.profile = repo;
     this.querySelector('[data-content]')!.setAttribute('aria-busy', 'false');
 
-    this.stat(
-      'verified',
-      closures ? formatPercent(closures.referencedShare) : '—'
-    );
-    this.stat(
-      'verified-note',
-      closures
-        ? `${formatCount(closures.byEvidence.fix_referenced)} of ${formatCount(closures.total)} closures reference a fix`
-        : 'available after the next tracker run'
-    );
-    const issues = tracker?.issues;
-    const reopened = issues?.reopened;
-    const everClosed = issues?.everClosed ?? 0;
-    this.stat(
-      'reopen',
-      reopened !== undefined && everClosed > 0
-        ? formatPercent(reopened / everClosed)
-        : '—'
-    );
-    this.stat(
-      'reopen-note',
-      reopened !== undefined
-        ? `${formatCount(reopened)} of ${formatCount(everClosed)} closed issues were reopened`
-        : 'available after the next tracker run'
-    );
-
-    this.renderHealth(tracker?.raw);
-    // The outlook runs after the page has drawn.
-    window.setTimeout(() => this.renderOutlook(asOf), 80);
-
-    // Everything that needs both queues waits for the agents' own queue.
-    (this.config?.queue ? loadAgentQueue(asOf) : Promise.resolve(null)).then(
-      (queue) => {
-        // Replay: the same panels, driven by the state as of a past moment.
-        const history = buildFrames(
-          snapshot.history,
-          queue?.points ?? [],
-          7,
-          asOf
-        );
-        const agents: Queue | null = queue && {
-          latest: queue.points[queue.points.length - 1],
-          velocity: queue.velocity,
-          loop: queue.loop,
-        };
-        this.frames = history;
-        this.publicStart = snapshot.history[0].date;
-        this.live = {
-          publicQueue,
-          agents,
-          strict: strictRatios(snapshot.history, 7, asOf),
-        };
-        this.renderAgentTrend(queue);
-        this.renderQueues(publicQueue, agents);
-
-        const slider =
-          this.querySelector<WeightSliderComponent>('weight-slider')!;
-        const defaultWeight =
-          tracker?.defaultPublicWeight ?? DEFAULT_PUBLIC_WEIGHT;
-        slider.hidden = !agents;
-        if (agents) {
-          const marks = weightMarks(publicQueue, agents, defaultWeight);
-          slider.marks = marks;
-          // A saved preset is re-applied at today's value; a custom weight as saved.
-          const savedMark = WeightSliderComponent.savedMark();
-          const preset = marks.find((mark) => mark.id === savedMark);
-          slider.mark = preset?.id ?? null;
-          slider.weight =
-            preset?.weight ?? WeightSliderComponent.saved() ?? defaultWeight;
-          this.weight = slider.weight;
-          this.mark = slider.mark;
-          slider.addEventListener('weight-change', (event) => {
-            this.weight = (event as CustomEvent<number>).detail;
-            this.mark = slider.mark;
-            this.peaks = this.scalePeaks(history);
-            this.showDials();
-            // The forecast's clock depends on the weighting: work it out again,
-            // once the slider settles.
-            window.clearTimeout(this.reforecast);
-            this.reforecast = window.setTimeout(
-              () => this.refreshForecast(),
-              200
-            );
-          });
-        }
-
-        const replay =
-          this.querySelector<ReplayControlComponent>('replay-control')!;
-        replay.setDays(history.map((frame) => frame.date));
-        replay.addEventListener('replay-position', (event) => {
-          const position = (event as CustomEvent<number | null>).detail;
-          this.replaying =
-            position === null ? null : frameAt(this.frames, position);
-          this.showDials();
-        });
-
-        // One scale per dial, from the busiest day of the whole record, for the
-        // live view, the replay and the forecast alike.
-        this.peaks = this.scalePeaks(history);
-        this.showDials();
-
-        // The forecast runs after the page has drawn: it loads the GSSK kernel
-        // and simulates both queues a few hundred times.
-        {
-          this.history = history;
-          window.setTimeout(
-            () =>
-              this.startForecast(snapshot, queue).catch((error) => {
-                console.warn('Forecast unavailable:', error);
-                this.querySelector('[data-forecast-note]')!.textContent =
-                  'The forecast could not be run in this browser.';
-              }),
-            50
-          );
-        }
-      }
-    );
+    this.renderAgentQueue(tracker?.updatedAt);
+    // The outlook simulates a few hundred runs: after the page has drawn.
+    window.setTimeout(() => this.renderOutlook(tracker?.updatedAt), 80);
   }
 
-  /** Every frame the replay can show: the record, then the forecast. */
-  private frames: Frame[] = [];
-  /** The record's frames alone. */
-  private history: Frame[] = [];
-  private ensemble: Ensemble | null = null;
-  private reforecast = 0;
-
-  /** Calibrates and simulates both queues with GSSK. */
-  private async startForecast(snapshot: Snapshot, queue: AgentQueue | null) {
-    // Without a second queue, the model's other queue is empty and still.
-    const agents = queue
-      ? calibrateQueue(queue.points, queue.velocity)
-      : EMPTY_QUEUE;
-    // A record too short to measure its own drift borrows the other queue's,
-    // or the default.
-    const publicIssues = calibrateQueue(
-      snapshot.history,
-      snapshot.velocity,
-      queue ? agents.volatility : undefined
-    );
-    const simulator = await loadSimulator({
-      public: publicIssues.start,
-      agents: agents.start,
-    });
-    try {
-      // The same seed for the same data, so a reload shows the same forecast.
-      const seed = Number(snapshot.latest.date.replaceAll('-', ''));
-      this.ensemble = runEnsemble(
-        simulator,
-        { public: publicIssues, agents },
-        { runs: FORECAST_RUNS, days: FORECAST_DAYS, seed }
-      );
-    } finally {
-      simulator.dispose();
+  private renderKpis(
+    snapshot: Snapshot,
+    data: {
+      classes: ReturnType<typeof parseClasses>;
+      delivery: ReturnType<typeof parseDelivery>;
+      audit: ReturnType<typeof parseAudit>;
+      pulls: ReturnType<typeof parsePulls>;
+      responses: ReturnType<typeof parseResponses>;
+      closures: ReturnType<typeof closureSummary>;
     }
-    this.refreshForecast();
-  }
+  ) {
+    const { latest, velocity, history } = snapshot;
+    const recent = history.slice(-90);
+    const kpis: Kpi[] = [];
 
-  /** Summarises the forecast at the current weighting and adds its frames. */
-  private refreshForecast() {
-    if (!this.ensemble || !this.live) return;
-    const single = !this.live.agents;
-    const rule: WeightRule = (state) => {
-      // One queue: the issues are everything.
-      if (single) return 1;
-      if (this.mark === 'backlog') {
-        const total = state.public.open + state.agents.open;
-        return total > 0 ? state.public.open / total : 0;
-      }
-      if (this.mark === 'effort') {
-        const resolved = (s: QueueState) => s.agents + s.humans;
-        const total = resolved(state.public) + resolved(state.agents);
-        return total > 0 ? resolved(state.public) / total : 0;
-      }
-      return this.weight;
-    };
-    const days = summarise(this.ensemble, rule);
-    const end = horizon(days);
-    const last = this.history[this.history.length - 1];
-    const forecast = forecastFrames(days, end.day, last.date, {
-      public: this.live.publicQueue.loop.history,
-      agents: this.live.agents?.loop.history ?? [],
+    const ratio = snapshot.doomLoop.ratio;
+    kpis.push({
+      label: 'Open issues',
+      value: formatCount(latest.open),
+      verdict:
+        velocity.days > 0
+          ? {
+              tone:
+                snapshot.openDelta > 0
+                  ? 'warn'
+                  : snapshot.openDelta < 0
+                    ? 'good'
+                    : 'neutral',
+              text:
+                snapshot.openDelta === 0
+                  ? `No change in ${Math.round(velocity.days)} days`
+                  : `${formatSigned(snapshot.openDelta)} in ${Math.round(velocity.days)} days`,
+            }
+          : undefined,
+      note: `${formatCount(latest.totalClosed)} resolved of ${formatCount(latest.created)} ever opened`,
+      spark: recent.map((p) => p.open),
+      href: '#issues',
     });
-    this.frames = [...this.history, ...forecast];
-    const replay =
-      this.querySelector<ReplayControlComponent>('replay-control')!;
-    replay.setDays(
-      this.frames.map((frame) => frame.date),
-      this.history.length - 1
-    );
-    const until = forecast[forecast.length - 1]?.date;
-    this.querySelector('[data-forecast-note]')!.textContent = until
-      ? `The forecast runs ${end.day} days, to ${formatDate(until)}: ` +
-        (end.reason === 'limit'
-          ? `it stays informative at least that far.`
-          : `after that it is no better than a guess.`)
-      : '';
-  }
 
-  /** The live state of both queues. */
-  private live: {
-    publicQueue: Queue;
-    agents: Queue | null;
-    strict: StrictRatios;
-  } | null = null;
-  /** The past state being replayed, or `null` for the live view. */
-  private replaying: Frame | null = null;
-  /** The public issues' weight in the combined figures, as chosen. */
-  private weight = DEFAULT_PUBLIC_WEIGHT;
-  /** The slider preset chosen, if any. */
-  private mark: WeightMark['id'] | null = null;
-  /** Each dial's fixed scale, from the busiest day of the record. */
-  private peaks: Record<string, number> | null = null;
+    kpis.push({
+      label: 'Opened per issue closed',
+      value: ratio === null ? '—' : ratio === Infinity ? '∞' : ratio.toFixed(2),
+      verdict:
+        ratio === null
+          ? { tone: 'neutral', text: 'No activity in the last week' }
+          : ratio === Infinity
+            ? { tone: 'bad', text: 'Issues arrive, none are closed' }
+            : ratio <= 0.9
+              ? { tone: 'good', text: 'Backlog shrinking' }
+              : ratio <= 1.1
+                ? { tone: 'good', text: 'Keeping pace' }
+                : ratio <= 1.5
+                  ? { tone: 'warn', text: 'Falling behind' }
+                  : { tone: 'bad', text: 'Falling well behind' },
+      note: `${formatRate(velocity.arrivals)} opened and ${formatRate(velocity.agent + velocity.human)} closed a day, last ${Math.round(velocity.days) || 7} days`,
+      spark: snapshot.doomLoop.history
+        .slice(-90)
+        .map((h) =>
+          h.ratio === null ? 1 : Math.min(h.ratio === Infinity ? 3 : h.ratio, 3)
+        ),
+      href: '#outlook',
+    });
 
-  /**
-   * The weight to use for a state. A data-derived preset is a rule, so it is
-   * worked out from that state's own figures; otherwise the chosen weight.
-   */
-  private weightFor(publicQueue: Queue, agents: Queue | null): number {
-    if (!agents) return 1;
-    if (this.mark === 'backlog') return backlogShare(publicQueue, agents);
-    if (this.mark === 'effort') return effortShare(publicQueue, agents);
-    return this.weight;
-  }
+    const over = data.classes
+      ? CLASSES.reduce((s, c) => s + data.classes![c].overLimit, 0)
+      : null;
+    const resolution = data.responses?.resolution;
+    kpis.push({
+      label: 'Time to resolve',
+      value: formatDuration(resolution?.medianHours ?? null),
+      verdict:
+        over === null
+          ? undefined
+          : over > 0
+            ? {
+                tone: 'bad',
+                text: `${formatCount(over)} open past ${over === 1 ? 'its' : 'their'} limit`,
+              }
+            : { tone: 'good', text: 'All open issues within limits' },
+      note: resolution?.count
+        ? `median of ${formatCount(resolution.count)} in ${data.responses!.windowDays} days · 90% within ${formatDuration(resolution.p90Hours)}`
+        : 'no issues resolved recently',
+      href: '#issues',
+    });
 
-  /** Each dial's largest rate over the whole record, at the current weighting. */
-  private scalePeaks(frames: Frame[]): Record<string, number> {
-    return {
-      public: peakRate(frames, (f) => f.publicQueue?.velocity ?? null),
-      agents: peakRate(frames, (f) => f.agents?.velocity ?? null),
-      combined: peakRate(frames, (f) =>
-        f.publicQueue
-          ? combinedVelocity(
-              f.publicQueue,
-              f.agents,
-              this.weightFor(f.publicQueue, f.agents)
-            )
-          : (f.agents?.velocity ?? null)
+    const first = data.responses?.firstResponse;
+    const awaiting = data.responses?.awaitingResponse ?? 0;
+    kpis.push({
+      label: 'Time to first response',
+      value: formatDuration(first?.medianHours ?? null),
+      verdict: data.responses
+        ? awaiting > 0
+          ? {
+              tone: 'warn',
+              text: `${formatCount(awaiting)} open with no reply`,
+            }
+          : { tone: 'good', text: 'Every open issue has a reply' }
+        : undefined,
+      note: first?.count
+        ? `median of ${formatCount(first.count)} issues answered in ${data.responses!.windowDays} days`
+        : 'no replies recorded recently',
+      href: '#issues',
+    });
+
+    const share = latest.totalClosed
+      ? latest.agentClosed / latest.totalClosed
+      : null;
+    const merged = data.pulls ? agentMergedShare(data.pulls) : null;
+    kpis.push({
+      label: 'Resolved by AI agents',
+      value: share === null ? '—' : formatPercent(share),
+      note:
+        `${formatCount(latest.agentClosed)} of ${formatCount(latest.totalClosed)} closed issues` +
+        (merged === null
+          ? ''
+          : ` · ${formatPercent(merged)} of merged pull requests had an agent's hand`),
+      spark: recent.map((p) =>
+        p.totalClosed ? p.agentClosed / p.totalClosed : 0
       ),
+      href: '#agents',
+    });
+
+    const verified = data.closures?.referencedShare ?? null;
+    kpis.push({
+      label: 'Closures with a linked fix',
+      value: verified === null ? '—' : formatPercent(verified),
+      verdict:
+        verified === null
+          ? undefined
+          : verified >= 0.8
+            ? { tone: 'good', text: 'Closures can be verified' }
+            : verified >= 0.5
+              ? { tone: 'warn', text: 'Many closures unverified' }
+              : { tone: 'bad', text: 'Most closures unverified' },
+      note: data.closures
+        ? `${formatCount(data.closures.byEvidence.fix_referenced)} of ${formatCount(data.closures.total)} closures reference a commit, pull request or release`
+        : 'available after the next tracker run',
+      href: '#issues',
+    });
+
+    const d = data.delivery;
+    const bandTone: Record<string, Tone> = {
+      elite: 'good',
+      high: 'good',
+      medium: 'warn',
+      low: 'bad',
     };
-  }
-
-  /**
-   * Draws the clock, the three dials and the three doom loops for the live
-   * state, or for the moment being replayed.
-   */
-  private showDials() {
-    if (!this.live) return;
-    const live = this.replaying === null;
-    const publicQueue = live
-      ? this.live.publicQueue
-      : this.replaying!.publicQueue;
-    const agents = live ? this.live.agents : this.replaying!.agents;
-
-    const forecast = live ? undefined : this.replaying!.forecast;
-    for (const name of ['public', 'agents', 'combined'] as const) {
-      const dial = this.dial(name);
-      dial.scalePeak = this.peaks?.[name] ?? null;
-      dial.range = forecast ? forecast.resolved[name] : null;
-      dial.fade = forecast?.fade ?? 0;
-    }
-
-    const publicDial = this.dial('public');
-    publicDial.heading = this.issuesName;
-    publicDial.open = publicQueue ? publicQueue.latest.open : null;
-    publicDial.velocity = publicQueue?.velocity ?? NO_VELOCITY;
-    const publicLoop = this.loop('public');
-    publicLoop.queue = this.issuesName;
-    publicLoop.open = Math.round(publicQueue?.latest.open ?? 0);
-    publicLoop.windowDays = publicQueue?.velocity.days ?? 0;
-    // The stricter ratios are only worked out for the live data.
-    publicLoop.strict = live ? this.live.strict : {};
-    publicLoop.loop = publicQueue?.loop ?? NO_LOOP;
-
-    const agentDial = this.dial('agents');
-    agentDial.heading = this.queueName;
-    agentDial.hidden = !this.live.agents;
-    agentDial.open = agents ? agents.latest.open : null;
-    agentDial.velocity = agents?.velocity ?? NO_VELOCITY;
-    const agentLoop = this.loop('agents');
-    agentLoop.queue = this.queueName;
-    agentLoop.caption = 'issues filed per issue resolved';
-    agentLoop.open = Math.round(agents?.latest.open ?? 0);
-    agentLoop.windowDays = agents?.velocity.days ?? 0;
-    agentLoop.loop = agents?.loop ?? NO_LOOP;
-
-    // Before the public issues existed, the combined view is the agents'.
-    if (publicQueue) {
-      this.renderCombined(
-        publicQueue,
-        agents,
-        this.weightFor(publicQueue, agents),
-        'public issues only',
-        forecast
-      );
-    } else if (agents) {
-      // The dials and doom loop can show the agents' queue alone, but the
-      // clock compares the two queues: it has no reading until both exist.
-      this.renderCombined(agents, null, 1, "agents' queue only");
-      const started = formatDate(this.publicStart);
-      this.querySelector<DoomsdayClockComponent>('doomsday-clock')!.show({
-        hours: null,
-        note: `No reading yet: the public issue tracker starts on ${started}.`,
+    if (d) {
+      kpis.push({
+        label: 'Deployment frequency',
+        value: formatFrequency(d.frequency.value ?? 0),
+        verdict: d.frequency.band
+          ? {
+              tone: bandTone[d.frequency.band],
+              text: `DORA ${d.frequency.band}`,
+            }
+          : undefined,
+        note: `${formatCount(d.frequency.count)} ${d.frequency.basis} in ${d.windowDays} days · lead time ${formatDuration(d.leadTimeHours.value)}`,
+        href: '#delivery',
       });
-      this.querySelector<HTMLElement>('[data-status]')!.hidden = true;
-      this.querySelector('[data-clock-note]')!.textContent =
-        'The clock compares both queues, so it starts when the public issues do.';
     }
+
+    const a = data.audit;
+    if (a) {
+      kpis.push({
+        label: 'Best-practice audit',
+        value: a.score === null ? '—' : `${a.score}/100`,
+        verdict:
+          a.score === null
+            ? undefined
+            : {
+                tone: a.score >= 80 ? 'good' : a.score >= 50 ? 'warn' : 'bad',
+                text: `${a.passed} of ${a.judged} checks pass`,
+              },
+        note:
+          a.waiting > 0
+            ? `${a.waiting} more checks judged once there is history`
+            : 'every check judged',
+        href: '/audit',
+      });
+    }
+
+    this.querySelector('[data-kpis]')!.replaceChildren(
+      ...kpis.map((k) => this.kpi(k))
+    );
   }
 
-  /** The first day of the public issue record. */
-  private publicStart = '';
+  private kpi(k: Kpi): HTMLElement {
+    const box = document.createElement(k.href ? 'a' : 'div');
+    box.className = 'card kpi';
+    if (k.href) (box as HTMLAnchorElement).href = k.href;
+    box.dataset.kpi = k.label;
+    const p = (cls: string, text: string) => {
+      const el = document.createElement('p');
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+    box.append(p('kpi-label', k.label), p('kpi-value tabular', k.value));
+    if (k.verdict) {
+      const verdict = p('kpi-verdict', '');
+      verdict.dataset.tone = k.verdict.tone;
+      const icon = document.createElement('span');
+      icon.className = 'tone-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = ICONS[k.verdict.tone];
+      verdict.append(icon, k.verdict.text);
+      box.append(verdict);
+    }
+    box.append(p('kpi-note', k.note));
+    if (k.spark && k.spark.length > 2) box.append(sparkline(k.spark));
+    return box;
+  }
+
+  private renderFindings(list: ReturnType<typeof findings>) {
+    const items = list.length
+      ? list.map((f) => {
+          const li = document.createElement('li');
+          li.className = 'finding';
+          li.dataset.tone = f.tone;
+          const icon = document.createElement('span');
+          icon.className = 'tone-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = ICONS[f.tone];
+          const a = document.createElement('a');
+          a.href = f.href;
+          a.textContent = f.text;
+          li.append(icon, a);
+          return li;
+        })
+      : [
+          Object.assign(document.createElement('li'), {
+            className: 'finding',
+            textContent:
+              'Nothing urgent: no issues past their limits, CI is green, and the audit has no open items.',
+          }),
+        ];
+    this.querySelector('[data-findings]')!.replaceChildren(...items);
+  }
+
+  /** The agents' file-based queue, when the Action is given one. */
+  private async renderAgentQueue(asOf: string | undefined) {
+    const panel = this.querySelector<HTMLElement>('[data-queue-trend]')!;
+    if (!this.config?.queue) return;
+    const queue = await loadAgentQueue(asOf);
+    panel.hidden = !queue;
+    if (!queue) return;
+    this.querySelector('[data-queue-title]')!.textContent =
+      this.config.queue.name;
+    const chart = this.querySelector<TrendChartComponent>(
+      '[data-trend="agents"]'
+    )!;
+    chart.labels = {
+      open: 'Open issues',
+      agentClosed: 'Resolved by AI agents',
+      humanClosed: 'Resolved by people',
+      totalClosed: 'Total resolved',
+    };
+    chart.points = queue.points;
+  }
 
   /** The project outlook, simulated with GSSK, then the back-test. */
   private async renderOutlook(asOf: string | undefined) {
@@ -574,181 +459,36 @@ export class DashboardPageComponent extends BaseComponent {
       panel.unavailable('The outlook could not be run in this browser.');
     }
   }
+}
 
-  /** Response times and the habits checklist. */
-  private renderHealth(raw: unknown) {
-    const responses = parseResponses(raw);
-    const tile = (
-      name: string,
-      d:
-        | { count: number; medianHours: number | null; p90Hours: number | null }
-        | undefined,
-      what: string
-    ) => {
-      this.stat(name, formatDuration(d?.medianHours ?? null));
-      this.stat(
-        `${name}-note`,
-        !responses
-          ? 'available after the next tracker run'
-          : d && d.count > 0
-            ? `median of ${formatCount(d.count)} ${what} in ${responses.windowDays} days · 90% within ${formatDuration(d.p90Hours)}`
-            : `no ${what} in the last ${responses.windowDays} days`
-      );
-    };
-    tile('first-response', responses?.firstResponse, 'issues answered');
-    tile('resolution', responses?.resolution, 'issues resolved');
-    if (responses && responses.awaitingResponse > 0) {
-      this.stat(
-        'first-response-note',
-        `${this.querySelector('[data-stat="first-response-note"]')!.textContent} · ${formatCount(responses.awaitingResponse)} open with no response`
-      );
-    }
-    this.querySelector<PracticeListComponent>('practice-list')!.practices =
-      parsePractices(raw);
-    this.querySelector<PullPanelComponent>('pull-panel')!.pulls =
-      parsePulls(raw);
-  }
-
-  /** The agents' own queue over time. */
-  private renderAgentTrend(queue: AgentQueue | null) {
-    const trend = this.querySelector<HTMLElement>('[data-queue-trend]')!;
-    trend.hidden = !queue;
-    if (queue) {
-      const chart = this.querySelector<TrendChartComponent>(
-        '[data-trend="agents"]'
-      )!;
-      chart.labels = {
-        open: 'Open issues',
-        agentClosed: 'Resolved by AI agents',
-        humanClosed: 'Resolved by humans',
-        totalClosed: 'Total resolved',
-      };
-      chart.points = queue.points;
-    }
-  }
-
-  /** The side-by-side comparison and the figures that span both queues. */
-  private renderQueues(publicQueue: Queue, agents: Queue | null) {
-    const figures = (queue: Queue) => ({
-      open: queue.latest.open,
-      resolved: queue.latest.totalClosed,
-      resolvedByAgents: queue.latest.agentClosed,
-      resolvedByHumans: queue.latest.humanClosed,
-      arrivals: queue.velocity.arrivals,
-      agentResolved: queue.velocity.agent,
-      humanResolved: queue.velocity.human,
-      days: queue.velocity.days,
-    });
-    this.querySelector<QueueCompareComponent>('queue-compare')!.comparison = {
-      agents: agents && figures(agents),
-      publicIssues: figures(publicQueue),
-    };
-
-    this.stat(
-      'open',
-      formatCount(publicQueue.latest.open + (agents?.latest.open ?? 0))
-    );
-    this.stat(
-      'open-note',
-      agents
-        ? `${formatCount(publicQueue.latest.open)} public issues · ${formatCount(agents.latest.open)} in the agents' queue`
-        : 'GitHub issues'
-    );
-
-    const attention = agents ? attentionIndex(publicQueue, agents) : null;
-    this.stat('attention', attention === null ? '—' : attention.toFixed(2));
-    this.stat(
-      'attention-note',
-      agents
-        ? `public issues get ${formatPercent(effortShare(publicQueue, agents))} of resolutions and hold ${formatPercent(backlogShare(publicQueue, agents))} of the backlog`
-        : "needs the agents' own queue"
-    );
-  }
-
-  /** The clock, large dial and top doom loop, at a weighting. */
-  private renderCombined(
-    publicQueue: Queue,
-    agents: Queue | null,
-    publicWeight: number,
-    only = 'public issues only',
-    forecast?: FrameForecast
-  ) {
-    const clock = this.querySelector<DoomsdayClockComponent>('doomsday-clock')!;
-    const hours = forecast
-      ? forecast.clock.mid
-      : combinedHoursToMidnight(publicQueue, agents, publicWeight);
-    clock.show({
-      hours,
-      range: forecast
-        ? { low: forecast.clock.low, high: forecast.clock.high }
-        : null,
-      fade: forecast?.fade ?? 0,
-    });
-    const level = threatLevel(hours);
-    const status = this.querySelector<HTMLElement>('[data-status]')!;
-    status.dataset.level = level;
-    this.querySelector('[data-status-icon]')!.textContent = STATUS[level].icon;
-    this.querySelector('[data-status-label]')!.textContent =
-      STATUS[level].label;
-    status.hidden = false;
-
-    const weights = agents
-      ? `public issues ${Math.round(publicWeight * 100)}%, agents' queue ${Math.round((1 - publicWeight) * 100)}%`
-      : only;
-    this.querySelector('[data-clock-note]')!.textContent =
-      `Weighted: ${weights}.`;
-
-    const share = combinedAgentShare(publicQueue, agents, publicWeight);
-    const percent = (queue: Queue | null) => {
-      const value = queue && queueAgentShare(queue);
-      return value === null ? 'n/a' : formatPercent(value);
-    };
-    this.stat('share', formatPercent(share));
-    if (!this.config?.queue) {
-      this.stat(
-        'share-note',
-        `of ${formatCount(publicQueue.latest.totalClosed)} closed issues`
-      );
-    } else
-      this.stat(
-        'share-note',
-        `combined · public issues ${percent(publicQueue)} · agents' queue ${percent(agents)}`
-      );
-
-    const dial = this.dial('combined');
-    dial.heading = agents ? 'Both queues, weighted' : `Combined: ${only}`;
-    dial.open = Math.round(
-      publicQueue.latest.open + (agents?.latest.open ?? 0)
-    );
-    dial.velocity = combinedVelocity(publicQueue, agents, publicWeight);
-
-    const loop = this.loop('combined');
-    loop.queue = agents ? 'Both queues, weighted' : `Combined: ${only}`;
-    loop.caption = 'issues opened per issue resolved, weighted across queues';
-    loop.note = agents
-      ? `Weighted geometric mean of the two queues' ratios: ${weights}.`
-      : '';
-    loop.open = Math.round(publicQueue.latest.open);
-    loop.windowDays = publicQueue.velocity.days;
-    loop.loop = combinedDoomLoop(publicQueue, agents, publicWeight);
-  }
-
-  private dial(name: string) {
-    return this.querySelector<VelocityGaugeComponent>(`[data-dial="${name}"]`)!;
-  }
-
-  private loop(name: string) {
-    return this.querySelector<DoomLoopComponent>(
-      `[data-queue-loop="${name}"]`
-    )!;
-  }
-
-  private stat(name: string, text: string, tone = '') {
-    const element = this.querySelector<HTMLElement>(`[data-stat="${name}"]`)!;
-    element.textContent = text;
-    element.classList.remove('good', 'bad');
-    if (tone) element.classList.add(tone);
-  }
+/** A small line over the values, scaled to their own range. */
+function sparkline(values: number[]): HTMLElement {
+  const holder = document.createElement('div');
+  holder.className = 'kpi-spark';
+  const root = svg('svg', {
+    viewBox: '0 0 100 28',
+    preserveAspectRatio: 'none',
+    'aria-hidden': 'true',
+  });
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const x = (i: number) => (i / (values.length - 1)) * 100;
+  const y = (v: number) => 25 - ((v - min) / span) * 22;
+  svg(
+    'path',
+    {
+      d: values.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' '),
+      fill: 'none',
+      stroke: 'var(--series-1)',
+      'stroke-width': 2,
+      'vector-effect': 'non-scaling-stroke',
+      'stroke-linejoin': 'round',
+    },
+    root
+  );
+  holder.append(root);
+  return holder;
 }
 
 if (!customElements.get(DashboardPageComponent.tagName)) {

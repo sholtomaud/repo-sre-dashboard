@@ -45,6 +45,9 @@ const issueNode = (number: number, closed: boolean) => ({
   lastComments: { nodes: [] },
 });
 
+const config_title = (show: (file: string) => string) =>
+  JSON.parse(show('dashboard/data/config.json')).title;
+
 function startApi(): Promise<http.Server> {
   const server = http.createServer((req, res) => {
     const send = (status: number, body: unknown) => {
@@ -102,6 +105,40 @@ function startApi(): Promise<http.Server> {
     ) {
       const workflow = "on:\n  schedule:\n    - cron: '5 */6 * * *'\n";
       return send(200, { content: Buffer.from(workflow).toString('base64') });
+    }
+    if (req.url === '/repos/owner/project') {
+      return send(200, {
+        description: 'A project',
+        default_branch: 'main',
+        created_at: '2026-10-01T00:00:00Z',
+        pushed_at: '2026-11-03T00:00:00Z',
+        visibility: 'public',
+        private: false,
+        stargazers_count: 3,
+        forks_count: 1,
+        archived: false,
+        license: { spdx_id: 'MIT', name: 'MIT License' },
+        topics: [],
+      });
+    }
+    if (req.url === '/repos/owner/project/languages') {
+      return send(200, { TypeScript: 900, Shell: 100 });
+    }
+    if (req.url?.startsWith('/repos/owner/project/git/trees/main')) {
+      return send(200, {
+        truncated: false,
+        tree: [
+          'README.md',
+          'package.json',
+          'package-lock.json',
+          'src/index.ts',
+          'src/index.test.ts',
+          '.github/workflows/sre.yml',
+        ].map((path) => ({ path, type: 'blob' })),
+      });
+    }
+    if (req.url?.startsWith('/repos/owner/project/actions/runs')) {
+      return send(403, { message: 'Resource not accessible by integration' });
     }
     return send(404, { message: 'Not Found' });
   });
@@ -194,12 +231,18 @@ test(
       assert.equal(status.schedule.description, 'every 6 hours');
       assert.equal(status.issues.total, 3);
       assert.equal(status.issues.open, 2);
-      assert.ok(
-        status.practices.some(
-          (p: { id: string; status: string }) =>
-            p.id === 'issue-forms' && p.status === 'missing'
-        )
-      );
+      const check = (id: string) =>
+        status.audit.checks.find((c: { id: string }) => c.id === id);
+      assert.equal(check('issue-forms').status, 'missing');
+      assert.equal(check('tests').status, 'improve');
+      assert.equal(check('token-permissions').status, 'missing');
+      assert.match(check('token-permissions').evidence, /CI runs/);
+      assert.equal(typeof status.audit.score, 'number');
+      assert.equal(status.repo.languages[0].name, 'TypeScript');
+      assert.equal(status.repo.test_files, 1);
+      assert.deepEqual(status.repo.ecosystems, ['npm']);
+      assert.equal(status.delivery.source, 'merges');
+      assert.equal(config_title(show), 'owner/project');
       assert.equal(status.classes.bug.open, 2);
       assert.equal(status.classes.bug.limit_days, 30);
       assert.equal(status.agents.resolved, 1);

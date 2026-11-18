@@ -5,6 +5,7 @@ import './components/nav-page/nav-page.ts';
 const router = Router.getInstance();
 router.notFound = 'not-found-page';
 router.registerRoute({ path: '/', component: 'dashboard-page' });
+router.registerRoute({ path: '/audit', component: 'audit-page' });
 router.registerRoute({ path: '/methodology', component: 'methodology-page' });
 router.start();
 

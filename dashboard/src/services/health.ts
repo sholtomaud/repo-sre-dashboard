@@ -1,5 +1,5 @@
 /**
- * Response times and the repository habits checklist, from status.json.
+ * Response times and pull requests by origin, from status.json.
  * DOM-free; unit-tested with `node --test`.
  */
 
@@ -16,19 +16,6 @@ export interface Responses {
   /** Open issues nobody but the reporter has responded to. */
   awaitingResponse: number;
 }
-
-export type PracticeStatus = 'pass' | 'improve' | 'missing' | 'unknown';
-
-export interface Practice {
-  id: string;
-  title: string;
-  status: PracticeStatus;
-  evidence: string;
-  recommendation: string;
-  docs: string;
-}
-
-const STATUSES: PracticeStatus[] = ['pass', 'improve', 'missing', 'unknown'];
 
 function durations(value: unknown): Durations {
   const raw = (value ?? {}) as Record<string, unknown>;
@@ -52,25 +39,6 @@ export function parseResponses(status: unknown): Responses | null {
     resolution: durations(raw.resolution),
     awaitingResponse: Number(raw.awaitingResponse) || 0,
   };
-}
-
-/** The `practices` block of status.json; empty if absent. */
-export function parsePractices(status: unknown): Practice[] {
-  const raw = (status as { practices?: unknown } | null)?.practices;
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((p) => p && typeof p.id === 'string' && typeof p.title === 'string')
-    .map((p) => ({
-      id: p.id,
-      title: p.title,
-      status: STATUSES.includes(p.status) ? p.status : 'unknown',
-      evidence: String(p.evidence ?? ''),
-      recommendation: String(p.recommendation ?? ''),
-      docs:
-        typeof p.docs === 'string' && p.docs.startsWith('https://')
-          ? p.docs
-          : '',
-    }));
 }
 
 /** `45 min`, `6.5 h` or `3.2 days`. */

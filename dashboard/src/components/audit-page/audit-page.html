@@ -1,0 +1,41 @@
+<main class="page">
+  <header class="hero">
+    <p class="eyebrow">Best-practice audit · <span data-repo></span></p>
+    <h1>Audit</h1>
+    <p class="lede">
+      How this repository is set up and run, checked against current best
+      practice for security, delivery and working with AI agents. Each finding
+      says what was found, why it matters, and gives a fix you can copy.
+    </p>
+  </header>
+
+  <section class="card score" data-score-card aria-live="polite">
+    <div class="score-figure">
+      <p class="score-value tabular" data-score>—</p>
+      <p class="score-unit">out of 100</p>
+    </div>
+    <div class="score-text">
+      <p class="score-line" data-score-line>Loading the audit…</p>
+      <div class="score-bar" data-score-bar aria-hidden="true"></div>
+      <ul class="counts" data-counts></ul>
+      <p class="score-note">
+        Weighted by impact: high-impact checks count three times as much as
+        low-impact ones. Checks that need history wait until there is enough.
+      </p>
+    </div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Show">
+    <button type="button" data-filter="todo" aria-pressed="true">To do</button>
+    <button type="button" data-filter="all" aria-pressed="false">All</button>
+    <button type="button" data-filter="pass" aria-pressed="false">
+      Passing
+    </button>
+    <button type="button" data-filter="waiting" aria-pressed="false">
+      Waiting for data
+    </button>
+  </div>
+
+  <div class="groups" data-groups></div>
+  <p class="empty" data-empty hidden>Nothing here.</p>
+</main>

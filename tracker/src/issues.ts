@@ -43,7 +43,13 @@ export interface Issue {
   opener: Closer;
   /** Security, bug or other: which manageability limit applies. */
   issueClass: IssueClass;
+  /** Labelled as an incident, outage or regression. */
+  incident?: boolean;
 }
+
+/** Labels that mark an issue as an incident in production. */
+export const INCIDENT_LABEL =
+  /^(incident|outage|regression|sev[ -]?[0-3]|p0|production|prod[ -]issue)$/i;
 
 /** Login fragments that mark an account as automation or an AI agent. */
 export const AGENT_WORDS = [
@@ -317,6 +323,7 @@ export function toIssue(node: IssueNode, agentLogins: string[] = []): Issue {
       : 'human',
     issueClass: classifyClass(node.title ?? null, node.body, labels, kind),
     reopened: node.reopens.totalCount > 0,
+    incident: labels.some((l) => INCIDENT_LABEL.test(l.trim())),
     firstResponseAt: firstResponse(
       author,
       node.firstComments.nodes.map((c) => ({
@@ -503,20 +510,59 @@ export const DEFAULT_LIMITS: Limits = { security: 7, bug: 30, other: 180 };
  * Each class's state now: open issues, the age of the oldest, and how many
  * are already older than the class's limit.
  */
-export function classStatus(issues: Issue[], limits: Limits, now: Date) {
+export function classStatus(
+  issues: Issue[],
+  limits: Limits,
+  now: Date,
+  windowDays = 30
+) {
+  const since = now.getTime() - windowDays * MS_PER_DAY;
+  const days = (from: string, to: string) =>
+    (Date.parse(to) - Date.parse(from)) / MS_PER_DAY;
+  const middle = (values: number[]) => {
+    if (!values.length) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
   return Object.fromEntries(
     CLASSES.map((c) => {
-      const open = issues.filter((i) => !i.closedAt && i.issueClass === c);
+      const mine = issues.filter((i) => i.issueClass === c);
+      const open = mine.filter((i) => !i.closedAt);
       const ages = open.map(
         (i) => (now.getTime() - Date.parse(i.createdAt)) / MS_PER_DAY
+      );
+      const closedRecently = mine.filter(
+        (i) => i.closedAt && Date.parse(i.closedAt) >= since
+      );
+      const resolved = closedRecently.filter(
+        (i) => i.evidence !== 'withdrawn' && i.evidence !== 'duplicate'
       );
       return [
         c,
         {
+          total: mine.length,
           open: open.length,
           oldest_open_days: ages.length ? Math.max(...ages) : null,
+          median_open_age_days: middle(ages),
           over_limit: ages.filter((age) => age > limits[c]).length,
           limit_days: limits[c],
+          window_days: windowDays,
+          opened_recent: mine.filter((i) => Date.parse(i.createdAt) >= since)
+            .length,
+          closed_recent: closedRecently.length,
+          closed_recent_by_agents: closedRecently.filter(
+            (i) => i.closer === 'agent'
+          ).length,
+          closed_recent_with_fix: closedRecently.filter(
+            (i) => i.evidence === 'fix_referenced'
+          ).length,
+          median_days_to_resolve: middle(
+            resolved.map((i) => days(i.createdAt, i.closedAt!))
+          ),
+          resolved_within_limit: resolved.filter(
+            (i) => days(i.createdAt, i.closedAt!) <= limits[c]
+          ).length,
+          resolved_recent: resolved.length,
         },
       ];
     })

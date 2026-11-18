@@ -2,7 +2,7 @@
   "repository": "aws/aws-emulator",
   "repository_url": "https://github.com/aws/aws-emulator",
   "issues_url": "https://github.com/aws/aws-emulator/issues",
-  "title": "Developer Doomsday Clock",
+  "title": "aws/aws-emulator",
   "queue": {
     "name": "Agents' own queue",
     "repository": "aws/aws-emulator",

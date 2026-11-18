@@ -4,8 +4,10 @@
  *
  *   data.csv          daily running totals of the repository's issues
  *   agent_queue.csv   daily counts of a file-based queue, when configured
- *   status.json       last update, schedule, breakdowns, response times and
- *                     the habits checklist
+ *   pulls.csv         daily running totals of pull requests, by origin
+ *   status.json       last update, schedule, issue and pull request
+ *                     breakdowns, the repository's profile, CI and delivery
+ *                     metrics, and the best-practice audit
  *   config.json       what the dashboard shows: repository, title, queue
  *
  * Inputs come from environment variables set by action.yml.
@@ -24,7 +26,9 @@ import {
   issueSummary,
   responseTimes,
 } from './issues.ts';
-import { checkPractices } from './practices.ts';
+import { auditScore, runAudit } from './audit.ts';
+import { deliveryMetrics } from './delivery.ts';
+import { ciHealth, profileSummary, readProfile } from './repo.ts';
 import { PULL_FIELDS, fetchPulls, pullRows, pullSummary } from './pulls.ts';
 import { updateQueue } from './queue.ts';
 import {
@@ -92,16 +96,6 @@ function costInputs() {
   };
 }
 
-/** File names under .github/ISSUE_TEMPLATE, or `null` if there are none. */
-async function issueTemplates(client: GitHubClient, repository: string) {
-  const entries = await client
-    .rest<{ name: string }[]>(
-      `/repos/${repository}/contents/.github/ISSUE_TEMPLATE`
-    )
-    .catch(() => null);
-  return Array.isArray(entries) ? entries.map((e) => e.name) : null;
-}
-
 export async function main(now = new Date()): Promise<void> {
   const repository = env('GITHUB_REPOSITORY');
   if (!repository) throw new Error('GITHUB_REPOSITORY is not set');
@@ -156,13 +150,34 @@ export async function main(now = new Date()): Promise<void> {
 
   const schedule = await readSchedule(client);
   const summary = issueSummary(issues);
-  const weight = Number(env('SRE_PUBLIC_WEIGHT', '0.5'));
+  // The workflow running this Action: its own runs are not the project's CI.
+  const selfWorkflow =
+    /^[^/]+\/[^/]+\/(.+?)@/.exec(env('GITHUB_WORKFLOW_REF'))?.[1] ?? null;
+  const profile = await readProfile(client, repository, now, selfWorkflow);
+  const ci = ciHealth(profile.ciRuns, now);
+  const delivery = deliveryMetrics(profile, pulls, issues, now);
+  console.log(
+    `Repository: ${profile.files} files, ${profile.workflows.length} workflows, ${profile.ciRuns.length} CI runs` +
+      (profile.denied.length
+        ? `; could not read ${profile.denied.map((d) => `${d.what} (needs ${d.permission})`).join(', ')}`
+        : '')
+  );
   const limits = {
     security: days(env('SRE_SECURITY_DAYS'), DEFAULT_LIMITS.security),
     bug: days(env('SRE_BUG_DAYS'), DEFAULT_LIMITS.bug),
     other: days(env('SRE_FEATURE_DAYS'), DEFAULT_LIMITS.other),
   };
   const cost = costInputs();
+  const checks = runAudit({
+    repository,
+    profile,
+    summary,
+    schedule,
+    pulls: pullStats,
+    ci,
+    delivery,
+    costConfigured: cost !== null,
+  });
   const status = {
     updated_at: now.toISOString().replace(/\.\d+Z$/, 'Z'),
     schedule: {
@@ -172,22 +187,15 @@ export async function main(now = new Date()): Promise<void> {
       description: schedule.description,
       run_times_utc: schedule.runTimesUtc,
     },
-    weighting: {
-      default_public_weight: Number.isFinite(weight)
-        ? Math.min(1, Math.max(0, weight))
-        : 0.5,
-    },
     issues: summary,
     responses: responseTimes(issues, now),
     classes: classStatus(issues, limits, now),
     agents: agentRecord(issues),
     pulls: pullStats,
-    practices: checkPractices({
-      issueTemplates: await issueTemplates(client, repository),
-      summary,
-      schedule,
-      pulls: pullStats,
-    }),
+    repo: profileSummary(profile),
+    ci,
+    delivery,
+    audit: { ...auditScore(checks), checks },
   };
   fs.writeFileSync(
     path.join(out, 'status.json'),
@@ -198,7 +206,7 @@ export async function main(now = new Date()): Promise<void> {
     repository,
     repository_url: `${serverUrl}/${repository}`,
     issues_url: `${serverUrl}/${repository}/issues`,
-    title: env('SRE_TITLE', 'Developer Doomsday Clock'),
+    title: env('SRE_TITLE', repository),
     queue: queue
       ? {
           name: env('SRE_QUEUE_NAME', "Agents' own queue"),

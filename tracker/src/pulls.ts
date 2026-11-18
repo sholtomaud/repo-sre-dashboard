@@ -24,6 +24,18 @@ export interface PullRequest {
   origin: Origin;
   /** The agent named, when known: "Claude", "Copilot". */
   agent: string | null;
+  /** The branch it targets; `null` when not known. */
+  base?: string | null;
+  /** A revert or hotfix: a change that repairs an earlier one. */
+  repair?: boolean;
+}
+
+/** A pull request that undoes or hot-fixes an earlier change. */
+export function isRepair(title: string, labels: string[]): boolean {
+  return (
+    /^\s*(revert\b|hot-?fix\b)/i.test(title) ||
+    labels.some((l) => /^(revert|hot-?fix|rollback)$/i.test(l.trim()))
+  );
 }
 
 /** Agent names, as they appear in trailers and signatures. */
@@ -117,7 +129,8 @@ query($owner: String!, $name: String!, $cursor: String) {
     pullRequests(first: 50, after: $cursor, orderBy: {field: CREATED_AT, direction: ASC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        number createdAt mergedAt closedAt body
+        number title createdAt mergedAt closedAt body baseRefName
+        labels(first: 10) { nodes { name } }
         author { login __typename }
         commits(last: 25) { nodes { commit { message } } }
       }
@@ -131,6 +144,9 @@ interface PullNode {
   mergedAt: string | null;
   closedAt: string | null;
   body: string | null;
+  title?: string | null;
+  baseRefName?: string | null;
+  labels?: { nodes: { name: string }[] } | null;
   author: { login: string; __typename: string } | null;
   commits: { nodes: { commit: { message: string } }[] };
 }
@@ -173,6 +189,11 @@ export async function fetchPulls(
         closedAt: node.closedAt,
         origin,
         agent,
+        base: node.baseRefName ?? null,
+        repair: isRepair(
+          node.title ?? '',
+          node.labels?.nodes.map((l) => l.name) ?? []
+        ),
       });
     }
     if (!page.pageInfo.hasNextPage) return pulls;

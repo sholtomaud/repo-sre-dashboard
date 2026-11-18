@@ -57,86 +57,7 @@ test.use({ serviceWorkers: 'block' });
 
 test('has title', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle(/Developer Doomsday Clock/);
-});
-
-test('dashboard shows the combined clock, dials, indices and trends', async ({
-  page,
-}) => {
-  await withFixture(page);
-  await page.goto('/');
-
-  // Agents resolved 25% of the public issues and all of their own queue:
-  // at equal weight 62.5%, so 9 hours to midnight.
-  const clock = page.locator('doomsday-clock');
-  await expect(clock.locator('[data-hours]')).toHaveText('9.0');
-  await expect(clock.locator('[data-time]')).toHaveText('Clock reads 15:00');
-  await expect(clock.getByRole('img')).toHaveAttribute(
-    'aria-label',
-    /9\.0 hours to midnight, reading 15:00/
-  );
-  await expect(page.locator('[data-clock-note]')).toHaveText(
-    "Weighted: public issues 50%, agents' queue 50%."
-  );
-  await expect(page.locator('[data-status]')).toContainText('Severe');
-
-  // One large dial for both queues and a smaller one for each.
-  const dial = (name) => page.locator(`velocity-gauge[data-dial="${name}"]`);
-  // Each needle is everyone's rate: agents and humans together. Public:
-  // 6 by agents and 18 by humans over 6.5 days, against 44 new issues.
-  await expect(dial('public').locator('[data-readout]')).toHaveText('3.7');
-  await expect(dial('public').locator('[data-gap]')).toHaveText(
-    '▼ 3.1 a day behind new issues'
-  );
-  await expect(dial('public').locator('[data-gauge]')).toHaveAttribute(
-    'aria-label',
-    /3\.7 issues resolved per day: 0\.9 by AI agents and 2\.8 by humans.*averaged over 6\.5 days/i
-  );
-  await expect(dial('agents').locator('[data-readout]')).toHaveText('107.6');
-  // The agents resolve 700 against 686 filed: just ahead.
-  await expect(dial('agents').locator('[data-gap]')).toHaveText(
-    '▲ 2.2 a day ahead of new issues'
-  );
-  await expect(dial('combined').locator('[data-readout]')).toHaveText('55.7');
-  await expect(dial('combined').locator('[data-heading]')).toHaveText(
-    'Both queues, weighted'
-  );
-
-  await expect(page.locator('[data-stat="share"]')).toHaveText('62.5%');
-  await expect(page.locator('[data-stat="share-note"]')).toHaveText(
-    "combined · public issues 25.0% · agents' queue 100.0%"
-  );
-  await expect(page.locator('[data-stat="open"]')).toHaveText('116');
-  // Public issues get 3.3% of resolutions and hold 25.9% of the backlog.
-  await expect(page.locator('[data-stat="attention"]')).toHaveText('0.13');
-  // The time and schedule come from status.json, not from the page's code.
-  await expect(page.locator('[data-as-of]')).toContainText(
-    /Data as of Nov 8, 2026, 12:05 UTC · updated every 6 hours · next around \d\d:05 UTC/
-  );
-  await expect(page.locator('.foot [data-schedule]')).toHaveText(
-    'Updated every 6 hours'
-  );
-
-  // Issues filed went 10 → 54 (44 opened) while 24 were closed: 1.8×.
-  // The backlog grows 20 in 6.5 days, so 30 open doubles in about 10 days.
-  const loop = page.locator('doom-loop[data-queue-loop="public"]');
-  await expect(loop.locator('[data-ratio]')).toHaveText('1.8');
-  await expect(loop.locator('[data-label]')).toHaveText('Falling behind');
-  await expect(loop.locator('[data-projection]')).toHaveText(
-    'At this rate the open backlog of 30 doubles in 10 days.'
-  );
-
-  // Table view lists every day, newest first.
-  // The combined doom loop is the geometric mean of 1.8× and 0.98×.
-  const combined = page.locator('doom-loop[data-queue-loop="combined"]');
-  await expect(combined.locator('[data-ratio]')).toHaveText('1.3');
-  await expect(combined.locator('[data-label]')).toHaveText('Falling behind');
-
-  const publicTrend = page.locator('trend-chart[data-trend="public"]');
-  await publicTrend.getByText('View as table').click();
-  const rows = publicTrend.locator('tbody tr');
-  await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toContainText('2026-11-08');
+  await expect(page).toHaveTitle(/Repo SRE Dashboard/);
 });
 
 test('trend chart: crosshair tooltip and legend toggles', async ({ page }) => {
@@ -163,9 +84,7 @@ test('trend chart: crosshair tooltip and legend toggles', async ({ page }) => {
   await expect(open).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('closure evidence, issue types and stricter doom loop ratios', async ({
-  page,
-}) => {
+test('closure evidence and issue types', async ({ page }) => {
   await withFixture(page, DETAIL_CSV, 200, DETAIL_STATUS);
   await page.goto('/');
 
@@ -184,13 +103,6 @@ test('closure evidence, issue types and stricter doom loop ratios', async ({
   await expect(evidence.locator('[data-labelled]')).toContainText(
     '2 of 30 open issues carry a label'
   );
-
-  // 44 opened against 3 referenced fixes; 32 behaviour reports against 20.
-  const loop = page.locator('doom-loop[data-queue-loop="public"]');
-  await expect(loop.locator('[data-strict-referenced-value]')).toHaveText(
-    '15×'
-  );
-  await expect(loop.locator('[data-strict-behavior-value]')).toHaveText('1.6×');
 });
 
 test('older data without closure details shows a note instead', async ({
@@ -199,158 +111,6 @@ test('older data without closure details shows a note instead', async ({
   await withFixture(page);
   await page.goto('/');
   await expect(page.locator('closure-evidence [data-empty]')).toBeVisible();
-  await expect(
-    page.locator('doom-loop[data-queue-loop="public"] [data-strict]')
-  ).toBeHidden();
-});
-
-test('the two queues are shown side by side', async ({ page }) => {
-  await withFixture(page);
-  await page.goto('/');
-  const queues = page.locator('queue-compare .queue');
-  await expect(queues).toHaveCount(2);
-  await expect(queues.first().locator('[data-open]')).toHaveText('86');
-  await expect(queues.first().locator('[data-resolved]')).toHaveText('1,700');
-  await expect(queues.last().locator('[data-open]')).toHaveText('30');
-  // Each queue has its own doom loop panel, in the same form.
-  const agents = page.locator('doom-loop[data-queue-loop="agents"]');
-  await expect(agents.locator('[data-queue]')).toHaveText("Agents' own queue");
-  // 686 filed against 700 resolved: just under break-even.
-  await expect(agents.locator('[data-ratio]')).toHaveText('1.0');
-  await expect(agents.locator('[data-label]')).toHaveText('Holding steady');
-  await expect(agents.locator('[data-caption]')).toHaveText(
-    'issues filed per issue resolved'
-  );
-  const publicLoop = page.locator('doom-loop[data-queue-loop="public"]');
-  await expect(publicLoop.locator('[data-queue]')).toHaveText(
-    'Public GitHub issues'
-  );
-  await expect(publicLoop.locator('[data-ratio]')).toHaveText('1.8');
-
-  // 700 resolved in the agents' queue over 6.5 days; 6 in the public one.
-  await expect(page.locator('queue-compare [data-summary]')).toHaveText(
-    'Agents resolve 107.6 a day in their own queue and 0.9 a day in the public one. Humans resolve 0.0 a day and 2.8 a day.'
-  );
-});
-
-test('the weighting slider moves the combined measures and is remembered', async ({
-  page,
-}) => {
-  await withFixture(page);
-  await page.goto('/');
-  const hours = page.locator('doomsday-clock [data-hours]');
-  const slider = page.locator('weight-slider');
-  await expect(hours).toHaveText('9.0');
-  await expect(
-    slider.getByRole('button', { name: /Equal per queue/ })
-  ).toHaveAttribute('aria-pressed', 'true');
-  // The marks derived from the data: 30 of 116 open issues are public.
-  await expect(
-    slider.getByRole('button', { name: /By backlog size/ })
-  ).toContainText('26% public');
-
-  // Public issues only is version 1 of the clock.
-  await slider.getByRole('button', { name: /Public issues only/ }).click();
-  await expect(hours).toHaveText('18.0');
-  await expect(page.locator('[data-status]')).toContainText('Elevated');
-  await expect(
-    page.locator('doom-loop[data-queue-loop="combined"] [data-ratio]')
-  ).toHaveText('1.8');
-  await expect(
-    page.locator('velocity-gauge[data-dial="combined"] [data-readout]')
-  ).toHaveText('3.7');
-  // The per-queue panels do not move.
-  await expect(
-    page.locator('doom-loop[data-queue-loop="agents"] [data-ratio]')
-  ).toHaveText('1.0');
-
-  await slider.getByRole('button', { name: /Agents' queue only/ }).click();
-  await expect(hours).toHaveText('0.0');
-  await expect(slider.locator('[data-readout]')).toHaveText(
-    "Public issues 0% · agents' queue 100%"
-  );
-
-  // Dragging works too, and the choice survives a reload.
-  await slider.getByRole('slider').fill('75');
-  await expect(hours).toHaveText('13.5');
-  await page.reload();
-  await expect(hours).toHaveText('13.5');
-});
-
-test('the forecast continues past today, then returns to live', async ({
-  page,
-}) => {
-  await withFixture(page);
-  await page.goto('/');
-  const replay = page.locator('replay-control');
-  // The GSSK simulation runs after the page has drawn.
-  await expect(page.locator('[data-forecast-note]')).toContainText(
-    /The forecast runs \d+ days?, to /,
-    { timeout: 20000 }
-  );
-  await expect(replay.getByRole('button')).toHaveText(/Replay and forecast/);
-  await expect(replay.locator('[data-date]')).toHaveText('Live');
-
-  // The last position is the end of the forecast.
-  const slider = replay.getByRole('slider');
-  await slider.fill(await slider.getAttribute('max'));
-  await expect(replay.locator('[data-date]')).toHaveText(/^Forecast · /);
-  await expect(page.locator('doomsday-clock [data-time]')).toHaveText(
-    /^Forecast: likely [\d.]+–[\d.]+ hours to midnight$/
-  );
-  await expect(
-    page.locator('velocity-gauge[data-dial="agents"] [data-forecast]')
-  ).toHaveText(/^Forecast: likely [\d.]+–[\d.]+ resolved a day$/);
-});
-
-test('a data-derived preset is worked out afresh for each replayed day', async ({
-  page,
-}) => {
-  await withFixture(page);
-  await page.goto('/');
-  const slider = page.locator('weight-slider');
-  const note = page.locator('[data-clock-note]');
-  await slider.getByRole('button', { name: /By backlog size/ }).click();
-  // Live: 30 of 116 open issues are public.
-  await expect(note).toHaveText(
-    "Weighted: public issues 26%, agents' queue 74%."
-  );
-  // On 1 November there were 10 public issues and 100 in the agents' queue.
-  await page.locator('replay-control').getByRole('slider').fill('0');
-  await expect(note).toHaveText(
-    "Weighted: public issues 9%, agents' queue 91%."
-  );
-});
-
-test('replay runs the dials through the record and returns to live', async ({
-  page,
-}) => {
-  // The record alone: without the simulation kernel there is no forecast.
-  await page.route('**/gssk*.wasm', (route) => route.abort());
-  await withFixture(page);
-  await page.goto('/');
-  const replay = page.locator('replay-control');
-  const date = replay.locator('[data-date]');
-  const hours = page.locator('doomsday-clock [data-hours]');
-  await expect(date).toHaveText('Live');
-  await expect(hours).toHaveText('9.0');
-
-  // Scrubbing to the first day shows the state as it was then: no public
-  // issue had been closed, so only the agents' queue (all agents) counts.
-  await replay.getByRole('slider').fill('0');
-  await expect(date).toHaveText('Nov 1, 2026');
-  await expect(hours).toHaveText('0.0');
-  await expect(
-    page.locator('velocity-gauge[data-dial="agents"] [data-readout]')
-  ).toHaveText('0.0');
-  await expect(replay.getByRole('button')).toHaveText(/Resume/);
-
-  // Playing runs forward to the end and lands back on the live data.
-  await replay.getByRole('button').click();
-  await expect(replay.getByRole('button')).toHaveText(/Pause/);
-  await expect(date).toHaveText('Live', { timeout: 15000 });
-  await expect(hours).toHaveText('9.0');
-  await expect(replay.getByRole('button')).toHaveText(/Replay the record/);
 });
 
 test('the agents\u2019 queue has its own trend chart', async ({ page }) => {
@@ -372,18 +132,8 @@ test('the page still works when the agent queue is missing', async ({
     route.fulfill({ status: 404 })
   );
   await page.goto('/');
-  await expect(page.locator('queue-compare [data-summary]')).toContainText(
-    'not available'
-  );
-  await expect(
-    page.locator('doom-loop[data-queue-loop="agents"] [data-label]')
-  ).toHaveText('Not enough data yet');
-  // With only the public issues, the clock is the version 1 reading.
-  await expect(page.locator('doomsday-clock [data-hours]')).toHaveText('18.0');
-  await expect(page.locator('weight-slider')).toBeHidden();
-  await expect(page.locator('[data-clock-note]')).toHaveText(
-    'Weighted: public issues only.'
-  );
+  await expect(page.locator('[data-queue-trend]')).toBeHidden();
+  await expect(page.locator('[data-kpi="Open issues"]')).toContainText('30');
 });
 
 test('works without status.json, treating the newest day as complete', async ({
@@ -394,9 +144,9 @@ test('works without status.json, treating the newest day as complete', async ({
   await expect(page.locator('[data-as-of]')).toHaveText(
     'Data as of Nov 8, 2026 (UTC)'
   );
-  await expect(
-    page.locator('velocity-gauge[data-dial="public"]').locator('[data-gauge]')
-  ).toHaveAttribute('aria-label', /averaged over 7 days/i);
+  // Without status.json, the panels built from it stay hidden.
+  await expect(page.locator('delivery-panel')).toBeHidden();
+  await expect(page.locator('[data-kpi="Open issues"]')).toContainText('30');
 });
 
 test('methodology shows the schedule from status.json', async ({ page }) => {
@@ -411,6 +161,14 @@ test('methodology shows the schedule from status.json', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Why a referenced fix is the test' })
   ).toBeVisible();
+  for (const name of ['Delivery', 'CI health', 'Codebase', 'The audit']) {
+    await expect(
+      page.getByRole('heading', { name, exact: true })
+    ).toBeVisible();
+  }
+  await expect(page.locator('methodology-page')).not.toContainText(
+    /doom|clock/i
+  );
 });
 
 test('shows an error when data.csv cannot be loaded', async ({ page }) => {
@@ -437,6 +195,11 @@ test('nav links navigate without reloading and mark the current page', async ({
     'page'
   );
 
+  await nav.getByRole('link', { name: 'Audit' }).click();
+  await expect(page).toHaveURL('/audit');
+  await expect(page.locator('audit-page h1')).toHaveText('Audit');
+
+  await nav.getByRole('link', { name: 'Methodology' }).click();
   await page.getByRole('link', { name: '← Back to the dashboard' }).click();
   await expect(page.locator('dashboard-page')).toBeVisible();
   expect(await page.evaluate(() => window.stillSamePage)).toBe(true);
@@ -459,97 +222,10 @@ test('is installable: manifest and icons resolve', async ({
     .locator('link[rel="manifest"]')
     .evaluate((l) => l.href);
   const manifest = await (await request.get(href)).json();
-  expect(manifest.name).toBe('Developer Doomsday Clock');
+  expect(manifest.name).toBe('Repo SRE Dashboard');
   for (const icon of manifest.icons) {
     expect((await request.get(new URL(icon.src, href).href)).ok()).toBe(true);
   }
-});
-
-test('a repository with only its issues gets a single-queue dashboard', async ({
-  page,
-}) => {
-  await withFixture(page, DETAIL_CSV, 200, {
-    ...DETAIL_STATUS,
-    responses: {
-      windowDays: 30,
-      firstResponse: { count: 4, medianHours: 2.5, p90Hours: 30 },
-      resolution: { count: 3, medianHours: 50, p90Hours: 100 },
-      awaitingResponse: 2,
-    },
-    practices: [
-      {
-        id: 'labels',
-        title: 'Issues are labelled',
-        status: 'missing',
-        evidence: '1% of 100 issues carry a label',
-        recommendation: 'Label every issue at triage.',
-        docs: 'https://docs.github.com/en/issues',
-      },
-      {
-        id: 'schedule',
-        title: 'The dashboard updates on a schedule',
-        status: 'pass',
-        evidence: 'Runs every 6 hours',
-        recommendation: '',
-        docs: 'https://docs.github.com/en/actions',
-      },
-    ],
-  });
-  await page.route('**/data/config.json', (route) =>
-    route.fulfill({
-      json: {
-        repository: 'owner/project',
-        repository_url: 'https://github.com/owner/project',
-        issues_url: 'https://github.com/owner/project/issues',
-        title: 'Project Clock',
-        queue: null,
-        why: null,
-      },
-    })
-  );
-  await page.goto('/');
-
-  await expect(page.locator('dashboard-page h1')).toHaveText('Project Clock');
-  await expect(page.locator('[data-repo-name]')).toHaveText('owner/project');
-  await expect(page).toHaveTitle('Project Clock · owner/project');
-  // Nothing to combine: one dial and one doom loop, no slider.
-  await expect(
-    page.locator('velocity-gauge[data-dial="public"]')
-  ).toBeVisible();
-  await expect(
-    page.locator('velocity-gauge[data-dial="combined"]')
-  ).toBeHidden();
-  await expect(page.locator('weight-slider')).toBeHidden();
-  await expect(page.locator('queue-compare')).toBeHidden();
-  await expect(
-    page.locator('doom-loop[data-queue-loop="public"] [data-queue]')
-  ).toHaveText('Issues');
-  // The clock is the issues' own: agents closed 6 of 24, a quarter.
-  await expect(page.locator('doomsday-clock [data-hours]')).toHaveText('18.0');
-  await expect(page.locator('[data-stat="share-note"]')).toHaveText(
-    'of 24 closed issues'
-  );
-
-  // Response times.
-  await expect(page.locator('[data-stat="first-response"]')).toHaveText(
-    '2.5 h'
-  );
-  await expect(page.locator('[data-stat="first-response-note"]')).toContainText(
-    '2 open with no response'
-  );
-  await expect(page.locator('[data-stat="resolution"]')).toHaveText('2.1 days');
-
-  // The habits checklist: what to fix first, with a link to the docs.
-  const items = page.locator('practice-list .practice');
-  await expect(items).toHaveCount(2);
-  await expect(items.first()).toContainText('Issues are labelled');
-  await expect(items.first()).toContainText('Label every issue at triage.');
-  await expect(
-    items.first().getByRole('link', { name: 'How to' })
-  ).toHaveAttribute('href', 'https://docs.github.com/en/issues');
-  await expect(page.locator('practice-list [data-score]')).toHaveText(
-    '1 of 2 in place'
-  );
 });
 
 test('deep links work with a trailing slash, as GitHub Pages serves them', async ({
@@ -691,4 +367,274 @@ test('the pull request panel is hidden without pull request data', async ({
   await withFixture(page);
   await page.goto('/');
   await expect(page.locator('pull-panel')).toBeHidden();
+});
+
+/** status.json with every block the tracker writes for the overview. */
+const fix = (id, status, impact, group = 'Supply chain and security') => ({
+  id,
+  group,
+  title: `Check ${id}`,
+  kind: 'setup',
+  impact,
+  status,
+  evidence: `Evidence for ${id}`,
+  why: `Why ${id} matters`,
+  recommendation: status === 'pass' ? '' : `Do ${id}`,
+  fixes:
+    status === 'pass'
+      ? []
+      : [
+          {
+            path: `.github/${id}.yml`,
+            language: 'yaml',
+            content: `name: ${id}\n`,
+          },
+        ],
+  docs: 'https://docs.github.com/en',
+});
+const REPORT = {
+  ...DETAIL_STATUS,
+  responses: {
+    windowDays: 30,
+    firstResponse: { count: 5, medianHours: 3, p90Hours: 20 },
+    resolution: { count: 24, medianHours: 50, p90Hours: 200 },
+    awaitingResponse: 4,
+  },
+  classes: {
+    security: {
+      total: 3,
+      open: 2,
+      over_limit: 1,
+      limit_days: 7,
+      oldest_open_days: 12,
+      window_days: 30,
+      opened_recent: 3,
+      closed_recent: 1,
+      closed_recent_by_agents: 1,
+      closed_recent_with_fix: 1,
+      resolved_recent: 1,
+      resolved_within_limit: 1,
+      median_days_to_resolve: 2,
+    },
+    bug: {
+      total: 20,
+      open: 20,
+      over_limit: 0,
+      limit_days: 30,
+      window_days: 30,
+    },
+    other: {
+      total: 8,
+      open: 8,
+      over_limit: 0,
+      limit_days: 180,
+      window_days: 30,
+    },
+  },
+  ci: {
+    window_days: 30,
+    runs: 20,
+    failed: 2,
+    success_rate: 0.9,
+    median_minutes: 12,
+    median_hours_to_green: 3,
+    failing_now: ['Lint'],
+  },
+  delivery: {
+    window_days: 30,
+    source: 'releases',
+    deployment_frequency: {
+      value: 0.2,
+      band: 'high',
+      count: 6,
+      basis: 'releases',
+    },
+    lead_time_hours: {
+      value: 30,
+      band: 'high',
+      count: 9,
+      basis: 'pull request opened to the next release',
+    },
+    change_failure_rate: {
+      value: 0.04,
+      band: 'elite',
+      count: 25,
+      basis: 'merged changes that are reverts or hotfixes',
+    },
+    time_to_restore_hours: {
+      value: null,
+      band: null,
+      count: 0,
+      basis: 'no issues are labelled as incidents',
+    },
+  },
+  repo: {
+    description: 'A test project.',
+    default_branch: 'main',
+    visibility: 'public',
+    stars: 5,
+    forks: 1,
+    license: 'MIT',
+    languages: [
+      { name: 'TypeScript', share: 0.8 },
+      { name: 'Shell', share: 0.2 },
+    ],
+    files: 120,
+    test_files: 30,
+    ecosystems: ['npm'],
+    workflows: [{ name: 'CI', on_pull_request: true, runs_tests: true }],
+    branch: { protected: false },
+  },
+  audit: {
+    score: 55,
+    passed: 1,
+    judged: 3,
+    waiting: 1,
+    checks: [
+      fix('dependency-updates', 'missing', 'high'),
+      fix('pinned-actions', 'improve', 'medium'),
+      fix('tests', 'pass', 'high', 'Code and CI'),
+      fix('labels', 'waiting', 'medium', 'Issues and triage'),
+    ],
+  },
+};
+
+test('the overview gives key figures and what needs attention', async ({
+  page,
+}) => {
+  await withFixture(page, DETAIL_CSV, 200, REPORT);
+  await page.goto('/');
+  await expect(page.locator('[data-lede]')).toHaveText('A test project.');
+  const kpi = (name) => page.locator(`[data-kpi="${name}"]`);
+  await expect(kpi('Open issues')).toContainText('30');
+  await expect(kpi('Time to resolve')).toContainText('2.1 days');
+  await expect(kpi('Time to resolve')).toContainText('1 open past its limit');
+  await expect(kpi('Time to first response')).toContainText(
+    '4 open with no reply'
+  );
+  await expect(kpi('Resolved by AI agents')).toContainText('25.0%');
+  await expect(kpi('Closures with a linked fix')).toContainText('12.5%');
+  await expect(kpi('Deployment frequency')).toContainText('1.4 a week');
+  await expect(kpi('Deployment frequency')).toContainText('DORA high');
+  await expect(kpi('Best-practice audit')).toContainText('55/100');
+
+  const findings = page.locator('[data-findings] li');
+  await expect(findings.nth(0)).toHaveText(
+    '✕1 open security issue is older than the 7-day limit.'
+  );
+  await expect(findings.nth(1)).toContainText(
+    'CI is failing on the default branch: Lint'
+  );
+  await expect(
+    findings.filter({ hasText: 'Do dependency-updates' })
+  ).toHaveAttribute('data-tone', 'bad');
+  await findings
+    .filter({ hasText: 'Do dependency-updates' })
+    .getByRole('link')
+    .click();
+  await expect(page).toHaveURL('/audit#dependency-updates');
+  await expect(
+    page.locator('audit-page #dependency-updates details')
+  ).toHaveAttribute('open', '');
+});
+
+test('issues by class, delivery and the codebase', async ({ page }) => {
+  await withFixture(page, DETAIL_CSV, 200, REPORT);
+  await page.goto('/');
+  const security = page.locator('class-table tr[data-class="security"]');
+  await expect(security.locator('th')).toContainText('7-day limit');
+  await expect(security.locator('td').nth(1)).toHaveText('1');
+  await expect(security.locator('td').nth(1)).toHaveAttribute(
+    'data-tone',
+    'bad'
+  );
+
+  const delivery = page.locator('delivery-panel');
+  await expect(delivery).toBeVisible();
+  await expect(delivery).toContainText('Deliveries are releases.');
+  const lead = delivery.locator('[data-metric="Lead time for changes"]');
+  await expect(lead.locator('.metric-value')).toHaveText('30 h');
+  await expect(lead.locator('[aria-current="true"]')).toHaveText('High');
+  await expect(
+    delivery.locator('[data-metric="Time to restore service"]')
+  ).toContainText('Label incidents to measure it');
+  await expect(delivery.locator('[data-ci]')).toContainText('90.0%');
+  await expect(delivery.locator('[data-ci]')).toContainText('Lint');
+
+  const profile = page.locator('repo-profile');
+  await expect(profile.locator('[data-languages]')).toHaveAttribute(
+    'aria-label',
+    'Languages: TypeScript 80%, Shell 20%'
+  );
+  await expect(profile.locator('[data-facts]')).toContainText('25% of files');
+  await expect(profile.locator('[data-facts]')).toContainText('not protected');
+});
+
+test('the audit filters checks and copies fixes', async ({ page }) => {
+  // A stand-in clipboard: only Chromium lets tests grant clipboard access.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.copied = text;
+        },
+      },
+    });
+  });
+  await withFixture(page, DETAIL_CSV, 200, REPORT);
+  await page.goto('/audit');
+  const audit = page.locator('audit-page');
+  await expect(audit.locator('[data-score]')).toHaveText('55');
+  await expect(audit.locator('[data-score-line]')).toHaveText(
+    '1 of 3 checks pass · 2 to do · 1 waiting for data'
+  );
+  // To do: most valuable first.
+  await expect(audit.locator('.check h3')).toHaveText([
+    'Check dependency-updates',
+    'Check pinned-actions',
+  ]);
+  const card = audit.locator('#dependency-updates');
+  await expect(card.locator('.badge')).toHaveText('✕Missing');
+  await expect(card).toContainText(
+    'Why it matters: Why dependency-updates matters'
+  );
+  const details = card.locator('details.fix');
+  await expect(details).not.toHaveAttribute('open', '');
+  await details.locator('summary').click();
+  await card
+    .getByRole('button', { name: 'Copy .github/dependency-updates.yml' })
+    .click();
+  await expect(card.getByRole('button', { name: /Copy/ })).toHaveText('Copied');
+  expect(await page.evaluate(() => window.copied)).toBe(
+    'name: dependency-updates\n'
+  );
+
+  await audit.getByRole('button', { name: 'Passing' }).click();
+  await expect(audit.locator('.check h3')).toHaveText(['Check tests']);
+  await expect(audit.locator('#tests details')).toHaveCount(0);
+  await audit.getByRole('button', { name: 'Waiting for data' }).click();
+  await expect(audit.locator('.check h3')).toHaveText(['Check labels']);
+  await audit.getByRole('button', { name: 'All' }).click();
+  await expect(audit.locator('.check')).toHaveCount(4);
+});
+
+test('the audit says when there is no audit yet', async ({ page }) => {
+  await withFixture(page);
+  await page.goto('/audit');
+  await expect(page.locator('audit-page [data-score-line]')).toHaveText(
+    'The audit appears after the next run of the dashboard workflow.'
+  );
+});
+
+test('fits a phone screen without sideways scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await withFixture(page, DETAIL_CSV, 200, REPORT);
+  for (const path of ['/', '/audit', '/methodology']) {
+    await page.goto(path);
+    await expect(page.locator('#router-outlet > *')).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth)
+    ).toBeLessThanOrEqual(390);
+  }
 });

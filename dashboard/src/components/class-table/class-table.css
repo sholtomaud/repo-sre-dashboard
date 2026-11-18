@@ -1,0 +1,48 @@
+:host {
+  display: block;
+}
+:host .classes {
+  padding: 1.25rem 1.5rem 1.25rem;
+}
+:host .table-wrap {
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+}
+:host table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+:host th,
+:host td {
+  padding: 0.625rem 0.5rem;
+  text-align: right;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+:host th:first-child,
+:host td:first-child {
+  text-align: left;
+}
+:host thead th {
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+:host tbody th {
+  font-weight: 600;
+}
+:host td[data-tone='bad'] {
+  color: var(--critical-ink);
+  font-weight: 700;
+}
+:host td[data-tone='good'] {
+  color: var(--good-ink);
+}
+:host .limit {
+  display: block;
+  color: var(--ink-muted);
+  font-weight: 400;
+  font-size: 0.75rem;
+}
