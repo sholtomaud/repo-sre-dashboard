@@ -84,3 +84,36 @@
 :host .ci dd[data-tone='good'] {
   color: var(--good-ink);
 }
+
+/* Bullet bars: greys darker for worse, low on the left. */
+:host .bullet {
+  position: relative;
+  display: flex;
+  height: 18px;
+  margin: 0.5rem 0 0.25rem;
+  border-radius: 3px;
+  overflow: hidden;
+}
+:host .bullet-band {
+  flex: 1 0 0;
+}
+:host .bullet-band[data-band='low'] {
+  background: color-mix(in srgb, var(--ink) 26%, var(--surface));
+}
+:host .bullet-band[data-band='medium'] {
+  background: color-mix(in srgb, var(--ink) 18%, var(--surface));
+}
+:host .bullet-band[data-band='high'] {
+  background: color-mix(in srgb, var(--ink) 11%, var(--surface));
+}
+:host .bullet-band[data-band='elite'] {
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface));
+}
+:host .bullet-bar {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  height: 6px;
+  border-radius: 0 2px 2px 0;
+  background: var(--ink);
+}

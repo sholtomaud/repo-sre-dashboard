@@ -166,3 +166,64 @@ summary:focus-visible,
   font-size: 0.8125rem;
   line-height: 1.5;
 }
+
+/* Dials (lib/dial.ts), shared by the overview and the audit. */
+.dial {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.dial-track,
+.dial-band,
+.dial-agents,
+.dial-humans {
+  fill: none;
+  stroke-width: 10;
+}
+.dial-track {
+  stroke: var(--surface-2);
+}
+.dial-agents {
+  stroke: var(--agents);
+}
+.dial-humans {
+  stroke: var(--humans);
+}
+.dial-gap-ahead,
+.dial-gap-behind {
+  fill: none;
+  stroke-width: 3;
+}
+.dial-gap-ahead {
+  stroke: var(--good);
+}
+.dial-gap-behind {
+  stroke: var(--critical);
+  stroke-dasharray: 4 3;
+}
+.dial-arrivals {
+  stroke: var(--arrivals);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.dial-tick {
+  stroke: var(--ink-muted);
+  stroke-width: 1.5;
+}
+.dial-tick-label {
+  fill: var(--ink-muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+.dial-needle {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.dial-hub {
+  fill: var(--ink);
+}
+.dial-target {
+  fill: var(--series-5);
+}

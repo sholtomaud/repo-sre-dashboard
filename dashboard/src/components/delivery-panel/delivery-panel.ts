@@ -7,6 +7,7 @@ import type {
   DeliveryMetric,
 } from '../../services/report.ts';
 import { formatCount, formatPercent } from '../../lib/format.ts';
+import { doraScale, type DoraName } from '../../services/instruments.ts';
 import template from './delivery-panel.html?raw';
 import style from './delivery-panel.css?raw';
 
@@ -66,12 +67,14 @@ export class DeliveryPanelComponent extends BaseComponent {
           'Deployment frequency',
           formatFrequency(m.frequency.value ?? 0),
           m.frequency,
+          'frequency',
           `${formatCount(m.frequency.count)} ${m.frequency.basis}`
         ),
         this.metric(
           'Lead time for changes',
           formatDuration(m.leadTimeHours.value),
           m.leadTimeHours,
+          'leadTimeHours',
           `median, ${m.leadTimeHours.basis}, over ${formatCount(m.leadTimeHours.count)} changes`
         ),
         this.metric(
@@ -80,12 +83,14 @@ export class DeliveryPanelComponent extends BaseComponent {
             ? '—'
             : formatPercent(m.failureRate.value),
           m.failureRate,
+          'failureRate',
           `${m.failureRate.basis}, of ${formatCount(m.failureRate.count)}`
         ),
         this.metric(
           'Time to restore service',
           formatDuration(m.restoreHours.value),
           m.restoreHours,
+          'restoreHours',
           m.restoreHours.count
             ? `median over ${formatCount(m.restoreHours.count)} ${m.restoreHours.basis}`
             : `Not measured: ${m.restoreHours.basis}. Label incidents to measure it.`
@@ -138,6 +143,7 @@ export class DeliveryPanelComponent extends BaseComponent {
     label: string,
     value: string,
     metric: DeliveryMetric,
+    name: DoraName,
     note: string
   ): HTMLElement {
     const box = document.createElement('section');
@@ -164,11 +170,48 @@ export class DeliveryPanelComponent extends BaseComponent {
     box.append(
       p('metric-label', label),
       p('metric-value tabular', value),
+      bullet(label, value, metric, name),
       scale,
       p('metric-note', note)
     );
     return box;
   }
+}
+
+/**
+ * A bullet bar: the four DORA bands as greys, darker for worse, low on the
+ * left; a bar runs from the left edge to the value.
+ */
+function bullet(
+  label: string,
+  value: string,
+  metric: DeliveryMetric,
+  name: DoraName
+): HTMLElement {
+  const scale = doraScale(name, metric.value);
+  const box = document.createElement('div');
+  box.className = 'bullet';
+  box.dataset.bullet = '';
+  box.setAttribute('role', 'img');
+  box.setAttribute(
+    'aria-label',
+    scale.position === null
+      ? `${label}: not measured`
+      : `${label} ${value}` + (metric.band ? `: DORA ${metric.band}` : '')
+  );
+  for (const band of scale.bands) {
+    const span = document.createElement('span');
+    span.className = 'bullet-band';
+    span.dataset.band = band.band;
+    box.append(span);
+  }
+  if (scale.position !== null) {
+    const bar = document.createElement('span');
+    bar.className = 'bullet-bar';
+    bar.style.width = `${Math.max(scale.position * 100, 1.5)}%`;
+    box.append(bar);
+  }
+  return box;
 }
 
 if (!customElements.get(DeliveryPanelComponent.tagName)) {

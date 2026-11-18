@@ -514,9 +514,43 @@ test('the overview gives key figures and what needs attention', async ({
   );
   await expect(kpi('Resolved by AI agents')).toContainText('25.0%');
   await expect(kpi('Closures with a linked fix')).toContainText('12.5%');
-  await expect(kpi('Deployment frequency')).toContainText('1.4 a week');
-  await expect(kpi('Deployment frequency')).toContainText('DORA high');
-  await expect(kpi('Best-practice audit')).toContainText('55/100');
+  await expect(kpi('CI runs passing')).toContainText('90.0%');
+  await expect(kpi('Agent readiness')).toContainText('55/100');
+
+  // The annunciator panel: lit only where something is abnormal.
+  const tile = (id) => page.locator(`[data-annunciator="${id}"]`);
+  await expect(tile('security')).toHaveAttribute('data-state', 'warning');
+  await expect(tile('security')).toContainText('1 past the 7-day limit');
+  await expect(tile('ci')).toHaveAttribute('data-state', 'warning');
+  await expect(tile('ci')).toContainText('Failing: Lint');
+  await expect(tile('replies')).toHaveAttribute('data-state', 'caution');
+  await expect(tile('past-limit')).toHaveAttribute('data-state', 'off');
+  await expect(tile('readiness')).toHaveAttribute('data-state', 'off');
+  await expect(tile('readiness')).toContainText('Supervised agents');
+  await expect(tile('delivery')).toHaveAttribute('data-state', 'off');
+  const lit = await page
+    .locator('[data-annunciator]:not([data-state="off"])')
+    .count();
+  await expect(page.locator('[data-master]')).toHaveText(
+    `Master caution · ${lit}`
+  );
+  await expect(page.locator('[data-master]')).toHaveAttribute(
+    'data-state',
+    'warning'
+  );
+
+  // Bounded figures are dials; every dial says what it shows.
+  await expect(
+    kpi('Closures with a linked fix').locator('svg.dial')
+  ).toHaveAttribute('aria-label', /12\.5%/);
+  await expect(kpi('Resolution velocity').locator('svg')).toHaveAttribute(
+    'aria-label',
+    /issues resolved a day/
+  );
+  await expect(
+    kpi('Opened per issue closed').locator('[data-ratio-tag]')
+  ).toBeVisible();
+  await expect(page.locator('[data-sign-key]')).toContainText('Agent');
 
   const findings = page.locator('[data-findings] li');
   await expect(findings.nth(0)).toHaveText(
@@ -552,6 +586,12 @@ test('issues by class, delivery and the codebase', async ({ page }) => {
   const delivery = page.locator('delivery-panel');
   await expect(delivery).toBeVisible();
   await expect(delivery).toContainText('Deliveries are releases.');
+  const frequency = delivery.locator('[data-metric="Deployment frequency"]');
+  await expect(frequency.locator('.metric-value')).toHaveText('1.4 a week');
+  await expect(frequency.locator('[data-bullet]')).toHaveAttribute(
+    'aria-label',
+    'Deployment frequency 1.4 a week: DORA high'
+  );
   const lead = delivery.locator('[data-metric="Lead time for changes"]');
   await expect(lead.locator('.metric-value')).toHaveText('30 h');
   await expect(lead.locator('[aria-current="true"]')).toHaveText('High');

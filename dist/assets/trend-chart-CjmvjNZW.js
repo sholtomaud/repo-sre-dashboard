@@ -1,4 +1,4 @@
-import{u as e}from"./index-DEG_I0VN.js";import{c as t}from"./metrics-BATIoqxo.js";import{n,t as r}from"./format-DYYxeEu5.js";import{r as i}from"./svg-BJXHUiNH.js";var a=`<figure class="trend">
+import{u as e}from"./index-Cfy_G1Ia.js";import{l as t}from"./metrics-DrWwOoaN.js";import{n,t as r}from"./format-DYYxeEu5.js";import{r as i}from"./svg-BJXHUiNH.js";var a=`<figure class="trend">
   <ul class="trend-legend" data-legend aria-label="Series"></ul>
   <div class="trend-plot" data-plot>
     <div class="trend-tooltip" data-tooltip hidden></div>
