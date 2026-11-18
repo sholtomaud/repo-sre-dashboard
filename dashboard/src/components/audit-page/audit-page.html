@@ -10,19 +10,33 @@
   </header>
 
   <section class="card score" data-score-card aria-live="polite">
-    <div class="score-figure">
-      <p class="score-value tabular" data-score>—</p>
-      <p class="score-unit">out of 100</p>
+    <div class="readiness">
+      <div class="dial-wrap" data-dial-wrap>
+        <div class="dial-figure">
+          <p class="score-value tabular" data-score>—</p>
+          <p class="score-unit">out of 100</p>
+        </div>
+      </div>
+      <div class="score-text">
+        <p class="distance" data-distance hidden></p>
+        <p class="zone">
+          <span class="zone-name" data-zone></span>
+          <span class="zone-autonomy" data-autonomy></span>
+        </p>
+        <p class="projected" data-projected hidden></p>
+        <p class="score-line" data-score-line>Loading the audit…</p>
+        <div class="score-bar" data-score-bar aria-hidden="true"></div>
+        <ul class="counts" data-counts></ul>
+      </div>
     </div>
-    <div class="score-text">
-      <p class="score-line" data-score-line>Loading the audit…</p>
-      <div class="score-bar" data-score-bar aria-hidden="true"></div>
-      <ul class="counts" data-counts></ul>
-      <p class="score-note">
-        Weighted by impact: high-impact checks count three times as much as
-        low-impact ones. Checks that need history wait until there is enough.
-      </p>
-    </div>
+    <ul class="group-dials" data-group-dials></ul>
+    <p class="score-note">
+      Distance from ideal: how far this repository is from being set up for AI
+      agents to work in safely and for this dashboard to measure what they and
+      people do. Weighted by impact: high-impact checks count three times as
+      much as low-impact ones. The magenta mark is where the file fixes below
+      would take it. Checks that need history wait until there is enough.
+    </p>
   </section>
 
   <div class="filters" role="group" aria-label="Show">

@@ -1,1 +1,0 @@
-function e(e,t={},n){let r=document.createElementNS(`http://www.w3.org/2000/svg`,e);for(let[e,n]of Object.entries(t))r.setAttribute(e,String(n));return n?.append(r),r}export{e as t};

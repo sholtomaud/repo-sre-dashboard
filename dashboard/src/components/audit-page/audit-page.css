@@ -25,19 +25,31 @@
   line-height: 1.55;
 }
 :host .score {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem 2rem;
-  align-items: center;
+  display: grid;
+  gap: 1.25rem;
   padding: 1.5rem;
 }
-:host .score-figure {
+:host .readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  align-items: center;
+}
+:host .dial-wrap {
+  position: relative;
+  width: min(240px, 100%);
+  flex: 0 0 auto;
+}
+:host .dial-figure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   text-align: center;
-  min-width: 7rem;
 }
 :host .score-value {
   margin: 0;
-  font-size: 3.5rem;
+  font-size: 2.5rem;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -45,12 +57,106 @@
 :host .score-unit {
   margin: 0.25rem 0 0;
   color: var(--ink-muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+}
+:host .dial {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+:host .dial-track,
+:host .dial-band {
+  fill: none;
+  stroke-width: 10;
+}
+:host .dial-track {
+  stroke: var(--surface-2);
+}
+:host .dial-tick {
+  stroke: var(--ink-muted);
+  stroke-width: 1.5;
+}
+:host .dial-tick-label {
+  fill: var(--ink-muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+:host .dial-needle {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+:host .dial-hub {
+  fill: var(--ink);
+}
+:host .dial-target {
+  fill: var(--series-5);
 }
 :host .score-text {
   flex: 1 1 280px;
   display: grid;
   gap: 0.625rem;
+}
+:host .distance {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+:host .zone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.625rem;
+  align-items: baseline;
+  margin: 0;
+}
+:host .zone-name {
+  font-weight: 700;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+:host .zone-name[data-zone='not-ready'] {
+  color: var(--critical-ink);
+}
+:host .zone-name[data-zone='ready'] {
+  color: var(--good-ink);
+}
+:host .zone-autonomy,
+:host .projected {
+  margin: 0;
+  color: var(--ink-2);
+}
+:host .group-dials {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:host .group-dial {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.125rem;
+}
+:host .group-dial .dial {
+  width: 96px;
+}
+:host .group-dial .dial-band,
+:host .group-dial .dial-track {
+  stroke-width: 14;
+}
+:host .group-dial-value {
+  margin-top: -1.25rem;
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+:host .group-dial-name {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
 }
 :host .score-line {
   margin: 0;

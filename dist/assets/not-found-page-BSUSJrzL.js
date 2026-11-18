@@ -1,4 +1,4 @@
-import{u as e}from"./index-4Hn5QvqR.js";var t=`<main class="missing">
+import{u as e}from"./index-DEG_I0VN.js";var t=`<main class="missing">
   <p class="code tabular">404</p>
   <h1>Page Not Found</h1>
   <p>The page you are looking for doesn't exist or has been moved.</p>

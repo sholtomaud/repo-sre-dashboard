@@ -9,6 +9,7 @@ import {
   parseDelivery,
   parseRepo,
   priorities,
+  readiness,
 } from './report.ts';
 
 const check = (id: string, status: string, impact: string) => ({
@@ -51,6 +52,57 @@ test('the audit is read safely and prioritised by impact', () => {
     ['b', 'd', 'a']
   );
   assert.equal(parseAudit({}), null);
+});
+
+test('readiness: distance from ideal, the projected score and the zone', () => {
+  const audit = parseAudit({
+    audit: {
+      score: 40,
+      checks: [
+        { ...check('a', 'missing', 'high'), group: 'Supply chain' },
+        // Only a command to run: not part of the files to add.
+        {
+          ...check('b', 'improve', 'medium'),
+          fixes: [{ path: '', language: 'shell', content: 'gh label …' }],
+        },
+        check('c', 'pass', 'high'),
+        // Habits need practice, not files.
+        { ...check('d', 'missing', 'low'), kind: 'habit' },
+        { ...check('e', 'waiting', 'high'), group: 'AI agents' },
+      ],
+    },
+  })!;
+  const r = readiness(audit)!;
+  assert.equal(r.score, 40);
+  assert.equal(r.distance, 60);
+  // a passes: (3 + 3 + 0.5 × 2) of 9 weighted points.
+  assert.equal(r.projected, 78);
+  assert.deepEqual(r.fileFixes, ['a']);
+  assert.equal(r.zone.id, 'not-ready');
+  assert.deepEqual(
+    r.groups.map((g) => [g.group, g.score, g.passed, g.judged]),
+    [
+      ['Supply chain', 0, 0, 1],
+      ['Code and CI', 67, 1, 3],
+      ['AI agents', null, 0, 0],
+    ]
+  );
+
+  // Without a score from the tracker, it is worked out from the checks.
+  const fresh = readiness({ ...audit, score: null })!;
+  assert.equal(fresh.score, 44);
+  assert.equal(readiness({ ...audit, checks: [], score: null }), null);
+  assert.equal(readiness(null), null);
+});
+
+test('readiness zones name the agent autonomy a repository can carry', () => {
+  const zone = (score: number) =>
+    readiness({ score, passed: 0, judged: 1, waiting: 0, checks: [] })!.zone.id;
+  assert.equal(zone(49), 'not-ready');
+  assert.equal(zone(50), 'supervised');
+  assert.equal(zone(79), 'supervised');
+  assert.equal(zone(80), 'ready');
+  assert.equal(zone(100), 'ready');
 });
 
 test('profile, CI, delivery and classes are read from status.json', () => {

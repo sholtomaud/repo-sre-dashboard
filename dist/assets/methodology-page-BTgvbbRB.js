@@ -1,4 +1,4 @@
-import{n as e,r as t,t as n,u as r}from"./index-4Hn5QvqR.js";import{o as i}from"./metrics-BATIoqxo.js";var a=`<main class="doc">
+import{n as e,r as t,t as n,u as r}from"./index-DEG_I0VN.js";import{o as i}from"./metrics-BATIoqxo.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
