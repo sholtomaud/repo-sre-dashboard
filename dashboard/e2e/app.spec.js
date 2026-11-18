@@ -570,8 +570,18 @@ test('issues by class, delivery and the codebase', async ({ page }) => {
   await expect(profile.locator('[data-facts]')).toContainText('not protected');
 });
 
-test('the audit filters checks and copies fixes', async ({ page, context }) => {
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+test('the audit filters checks and copies fixes', async ({ page }) => {
+  // A stand-in clipboard: only Chromium lets tests grant clipboard access.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.copied = text;
+        },
+      },
+    });
+  });
   await withFixture(page, DETAIL_CSV, 200, REPORT);
   await page.goto('/audit');
   const audit = page.locator('audit-page');
@@ -596,7 +606,7 @@ test('the audit filters checks and copies fixes', async ({ page, context }) => {
     .getByRole('button', { name: 'Copy .github/dependency-updates.yml' })
     .click();
   await expect(card.getByRole('button', { name: /Copy/ })).toHaveText('Copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+  expect(await page.evaluate(() => window.copied)).toBe(
     'name: dependency-updates\n'
   );
 
