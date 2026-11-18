@@ -47,6 +47,9 @@ export interface Issue {
   incident?: boolean;
 }
 
+/** The label on issues the audit opens. */
+export const AUDIT_LABEL = 'repo-sre-audit';
+
 /** Labels that mark an issue as an incident in production. */
 export const INCIDENT_LABEL =
   /^(incident|outage|regression|sev[ -]?[0-3]|p0|production|prod[ -]issue)$/i;
@@ -355,7 +358,16 @@ export async function fetchIssues(
       };
     } = await client.graphql(ISSUES_QUERY, { owner, name, cursor });
     const page = data.repository.issues;
-    issues.push(...page.nodes.map((node) => toIssue(node, agentLogins)));
+    // The audit's own issues are the dashboard's to-do list, not the
+    // project's issues: counting them would let the audit move the figures
+    // it measures.
+    issues.push(
+      ...page.nodes
+        .filter(
+          (node) => !node.labels.nodes.some((l) => l.name === AUDIT_LABEL)
+        )
+        .map((node) => toIssue(node, agentLogins))
+    );
     if (!page.pageInfo.hasNextPage) return issues;
     cursor = page.pageInfo.endCursor;
   }

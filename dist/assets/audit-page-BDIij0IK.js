@@ -1,4 +1,4 @@
-import{r as e,u as t}from"./index-kWKZl1p4.js";import{o as n}from"./metrics-BATIoqxo.js";import{i as r,l as i}from"./report-DsGyZjOC.js";var a=`<main class="page">
+import{r as e,u as t}from"./index-4Hn5QvqR.js";import{o as n}from"./metrics-BATIoqxo.js";import{i as r,l as i}from"./report-DsGyZjOC.js";var a=`<main class="page">
   <header class="hero">
     <p class="eyebrow">Best-practice audit · <span data-repo></span></p>
     <h1>Audit</h1>

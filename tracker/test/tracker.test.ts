@@ -283,6 +283,8 @@ const PROFILE: Profile = {
   ciRuns: [],
   releases: [],
   deployments: [],
+  labels: [],
+  agentDocs: [],
   denied: [],
 };
 
@@ -331,7 +333,7 @@ test('the audit grades setup and habits, with fixes to copy', () => {
   assert.match(by['ci-on-pull-requests'].fixes[0].content, /npm test/);
   assert.equal(by['dependency-updates'].status, 'missing');
   const dependabot = by['dependency-updates'].fixes[0].content;
-  assert.match(dependabot, /package-ecosystem: npm/);
+  assert.match(dependabot, /package-ecosystem: npm\n    directory: \//);
   assert.match(dependabot, /package-ecosystem: github-actions/);
   assert.equal(by['auto-patch'].status, 'improve');
   assert.match(by['auto-patch'].fixes[0].content, /fetch-metadata/);
@@ -411,6 +413,153 @@ jobs:
   const score = auditScore(Object.values(by));
   assert.ok(score.score! > auditScore(Object.values(audit({}))).score!);
   assert.equal(score.waiting, 4);
+});
+
+test('Dependabot gets an entry for every folder with a manifest', () => {
+  const by = audit({
+    ecosystems: [
+      { name: 'npm', directory: '/' },
+      { name: 'npm', directory: '/dashboard' },
+    ],
+  });
+  const yaml = by['dependency-updates'].fixes[0].content;
+  assert.equal(yaml.match(/package-ecosystem: npm/g)?.length, 2);
+  assert.match(yaml, /directory: \/dashboard/);
+  assert.match(by['ci-on-pull-requests'].fixes[0].content, /npm test/);
+});
+
+test('agent instructions: AGENTS.md, CLAUDE.md and what they cover', async () => {
+  const none = audit({});
+  assert.equal(none['agent-instructions'].status, 'missing');
+  assert.equal(none['agent-instructions-content'].status, 'missing');
+  const template = none['agent-instructions'].fixes[0].content;
+  for (const heading of [
+    'Build and test',
+    'Test-driven development',
+    'Raising issues',
+    'Commits and pull requests',
+    'Security',
+    'Attribution',
+  ]) {
+    assert.match(template, new RegExp(`## ${heading}`), heading);
+  }
+  assert.match(template, /`npm test`/);
+  assert.match(none['claude-md'].fixes[0].content, /^@AGENTS\.md/);
+
+  // The templates pass the checks they come from.
+  const { CLAUDE_TEMPLATE } = await import('../src/audit.ts');
+  const good = audit({
+    agentDocs: [
+      { path: 'AGENTS.md', text: template },
+      { path: 'CLAUDE.md', text: CLAUDE_TEMPLATE },
+    ],
+  });
+  for (const id of [
+    'agent-instructions',
+    'claude-md',
+    'agent-instructions-content',
+  ]) {
+    assert.equal(good[id].status, 'pass', id);
+  }
+
+  // A thin AGENTS.md and a CLAUDE.md that does not import it.
+  const thin = audit({
+    keyFiles: { ...PROFILE.keyFiles, agentInstructions: 'AGENTS.md' },
+    agentDocs: [
+      {
+        path: 'AGENTS.md',
+        text: '# Notes\nRun `npm test`. Never commit secrets.',
+      },
+      { path: 'CLAUDE.md', text: '# Claude\nBe careful.' },
+    ],
+  });
+  assert.equal(thin['claude-md'].status, 'improve');
+  assert.match(thin['claude-md'].evidence, /does not import AGENTS\.md/);
+  assert.equal(thin['agent-instructions-content'].status, 'missing');
+  assert.match(
+    thin['agent-instructions-content'].evidence,
+    /test-driven development, how to raise issues/
+  );
+});
+
+test('incident labels pass once the label exists', () => {
+  assert.equal(audit({})['incident-labels'].status, 'improve');
+  const ready = audit({ labels: ['bug', 'incident'] })['incident-labels'];
+  assert.equal(ready.status, 'pass');
+  assert.match(ready.evidence, /incident label is ready/);
+});
+
+test('audit issues are opened, updated, closed and reopened with their checks', async () => {
+  const { syncAuditIssues, marker } = await import('../src/audit-issues.ts');
+  type Sent = { method: string; path: string; body: Record<string, unknown> };
+  const sent: Sent[] = [];
+  let listed: unknown[] = [];
+  const client = {
+    rest: async () => null,
+    restAll: async () => listed,
+    graphql: async () => ({}),
+    send: async (method: string, path: string, body: unknown) => {
+      sent.push({ method, path, body: body as Record<string, unknown> });
+      if (path.endsWith('/labels')) throw new Error('HTTP 422');
+      return { number: 50 + sent.length };
+    },
+  };
+  const checks = Object.values(audit({}));
+  const by = Object.fromEntries(checks.map((c) => [c.id, c]));
+
+  // First run: every medium or high finding gets an issue; waiting checks
+  // and low-impact findings do not.
+  const first = await syncAuditIssues(
+    client as never,
+    'owner/project',
+    checks,
+    {
+      dashboardUrl: 'https://owner.github.io/project/dashboard/',
+    }
+  );
+  const created = sent.filter((s) => s.path.endsWith('/issues'));
+  assert.equal(first.opened.length, created.length);
+  const titles = created.map((s) => s.body.title);
+  assert.ok(titles.includes('Audit: Dependencies are updated automatically'));
+  assert.ok(!titles.includes(`Audit: ${by.labels.title}`), 'waiting');
+  assert.ok(!titles.includes(`Audit: ${by.codeowners.title}`), 'low impact');
+  const body = String(
+    created.find(
+      (s) => s.body.title === 'Audit: Dependencies are updated automatically'
+    )!.body.body
+  );
+  assert.ok(body.startsWith(marker('dependency-updates')));
+  assert.match(body, /```yaml\nversion: 2/);
+  assert.match(body, /dashboard\/audit#dependency-updates/);
+  assert.deepEqual(created[0].body.labels, ['repo-sre-audit']);
+
+  // Next run: the dependency check passes, so its issue closes; a closed
+  // issue for a failing check reopens; an unchanged one is left alone.
+  sent.length = 0;
+  listed = [
+    { number: 7, state: 'open', body: marker('dependency-updates') },
+    { number: 8, state: 'closed', body: marker('security-policy') },
+    {
+      number: 9,
+      state: 'open',
+      body: (await import('../src/audit-issues.ts')).issueBody(
+        by['code-scanning'],
+        ''
+      ),
+    },
+  ];
+  const fixed = checks.map((c) =>
+    c.id === 'dependency-updates' ? { ...c, status: 'pass' as const } : c
+  );
+  const second = await syncAuditIssues(client as never, 'owner/project', fixed);
+  assert.deepEqual(second.closed, [7]);
+  assert.deepEqual(second.reopened, [8]);
+  assert.ok(!second.updated.includes(9));
+  assert.ok(
+    sent.some(
+      (s) => s.path.endsWith('/issues/7') && s.body.state_reason === 'completed'
+    )
+  );
 });
 
 test('CI health: success rate, time to green, failing now', () => {

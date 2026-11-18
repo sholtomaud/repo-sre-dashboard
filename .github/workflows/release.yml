@@ -1,0 +1,27 @@
+# Release Please keeps a release pull request open from the commit titles on
+# main (use Conventional Commit titles: "feat: …", "fix: …"). Merging it
+# tags the release, and this workflow moves the major tag (v1) to it, so
+# `uses: sholtomaud/repo-sre-dashboard@v1` picks it up.
+name: Release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+      - if: steps.release.outputs.release_created
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Move the major tag
+        if: steps.release.outputs.release_created
+        env:
+          MAJOR: v${{ steps.release.outputs.major }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          git tag -f "$MAJOR" "$TAG"
+          git push -f origin "refs/tags/$MAJOR"

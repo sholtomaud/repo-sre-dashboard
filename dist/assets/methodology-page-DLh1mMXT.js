@@ -1,4 +1,4 @@
-import{n as e,r as t,t as n,u as r}from"./index-kWKZl1p4.js";import{o as i}from"./metrics-BATIoqxo.js";var a=`<main class="doc">
+import{n as e,r as t,t as n,u as r}from"./index-4Hn5QvqR.js";import{o as i}from"./metrics-BATIoqxo.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -448,6 +448,22 @@ import{n as e,r as t,t as n,u as r}from"./index-kWKZl1p4.js";import{o as i}from"
       than fail a new repository. The score is out of 100, weighted by impact: a
       high-impact check counts three times a low-impact one, and a check that
       could improve earns half.
+    </p>
+    <p>
+      Instruction files for coding agents (AGENTS.md, CLAUDE.md, Copilot's
+      instructions) are read, not just found. The audit checks that they say how
+      to build and test, ask for test-driven development, explain how to raise
+      issues so they are typed, labelled and linked to their fix, set commit and
+      pull request rules, cover secrets and security, and keep agent work
+      attributed. It also checks that CLAUDE.md imports AGENTS.md, so there is
+      one set of rules.
+    </p>
+    <p>
+      With the Action's <code>audit-issues</code> input on, each finding of
+      medium impact or more becomes an issue labelled
+      <code>repo-sre-audit</code>, updated as the finding changes and closed
+      when the check passes. These issues are left out of every issue figure on
+      the dashboard, so the audit never moves the numbers it measures.
     </p>
     <p>
       Agents that act on the findings run in GitHub Actions, with their API key
