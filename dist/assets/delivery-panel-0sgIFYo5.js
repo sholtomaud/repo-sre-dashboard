@@ -1,4 +1,4 @@
-import{u as e}from"./index-4Hn5QvqR.js";import{r as t}from"./health-RCxkCncK.js";import{a as n,t as r}from"./format-DYYxeEu5.js";var i=`<article class="card delivery">
+import{u as e}from"./index-DEG_I0VN.js";import{r as t}from"./health-RCxkCncK.js";import{a as n,t as r}from"./format-DYYxeEu5.js";var i=`<article class="card delivery">
   <header class="panel-head">
     <h2>Delivery</h2>
     <p>

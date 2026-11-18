@@ -619,6 +619,39 @@ test('the audit filters checks and copies fixes', async ({ page }) => {
   await expect(audit.locator('.check')).toHaveCount(4);
 });
 
+test('the audit dials distance from ideal, overall and by group', async ({
+  page,
+}) => {
+  await withFixture(page, DETAIL_CSV, 200, REPORT);
+  await page.goto('/audit');
+  const audit = page.locator('audit-page');
+  await expect(audit.locator('[data-dial]')).toHaveAttribute(
+    'aria-label',
+    'Readiness 55 out of 100, 45 points from ideal: supervised. ' +
+      'The 2 file fixes would take it to 100.'
+  );
+  await expect(audit.locator('[data-distance]')).toHaveText(
+    '45 points from ideal'
+  );
+  await expect(audit.locator('[data-zone]')).toHaveText('Supervised');
+  await expect(audit.locator('[data-autonomy]')).toHaveText(
+    'Agents can open pull requests; people review and merge.'
+  );
+  await expect(audit.locator('[data-projected]')).toHaveText(
+    'Adding the 2 file fixes, in one pull request, would take it to 100.'
+  );
+  await expect(audit.locator('[data-group-dial]')).toHaveCount(3);
+  await expect(
+    audit
+      .locator('[data-group-dial]')
+      .evaluateAll((dials) => dials.map((d) => d.getAttribute('aria-label')))
+  ).resolves.toEqual([
+    'Supply chain and security: 20 out of 100, 0 of 2 checks pass',
+    'Code and CI: 100 out of 100, 1 of 1 checks pass',
+    'Issues and triage: waiting for data',
+  ]);
+});
+
 test('the audit says when there is no audit yet', async ({ page }) => {
   await withFixture(page);
   await page.goto('/audit');

@@ -1,9 +1,12 @@
 import { BaseComponent } from '../../core/base-component.ts';
 import { loadConfig } from '../../lib/config.ts';
 import { loadStatus } from '../../services/metrics.ts';
+import { dial, type DialBand } from '../../lib/dial.ts';
 import {
   parseAudit,
   priorities,
+  readiness,
+  ZONES,
   type Audit,
   type Check,
   type CheckStatus,
@@ -22,6 +25,13 @@ export const STATUS_LABEL: Record<
   missing: { icon: '✕', label: 'Missing' },
   waiting: { icon: '…', label: 'Waiting for data' },
 };
+
+/** The dial's zones, coloured by status. */
+const BANDS: DialBand[] = ZONES.map((zone, i) => ({
+  from: zone.from,
+  to: ZONES[i + 1]?.from ?? 100,
+  colour: ['var(--critical)', 'var(--warning)', 'var(--good)'][i],
+}));
 
 const IMPACT_LABEL = {
   high: 'High impact',
@@ -97,6 +107,7 @@ export class AuditPageComponent extends BaseComponent {
       return;
     }
     set('[data-score]', audit.score === null ? '—' : String(audit.score));
+    this.drawReadiness();
     const count = (s: CheckStatus) =>
       audit.checks.filter((c) => c.status === s).length;
     const todo = priorities(audit.checks).length;
@@ -125,6 +136,67 @@ export class AuditPageComponent extends BaseComponent {
       ...order.map((s) => {
         const li = document.createElement('li');
         li.textContent = `${STATUS_LABEL[s].icon} ${count(s)} ${STATUS_LABEL[s].label.toLowerCase()}`;
+        return li;
+      })
+    );
+  }
+
+  private drawReadiness() {
+    const ready = readiness(this.audit);
+    const wrap = this.querySelector('[data-dial-wrap]')!;
+    wrap.querySelector('svg')?.remove();
+    if (!ready) return;
+    const fixes = ready.fileFixes.length;
+    const files = `${fixes} file ${fixes === 1 ? 'fix' : 'fixes'}`;
+    const after =
+      ready.projected > ready.score
+        ? ` The ${files} would take it to ${ready.projected}.`
+        : '';
+    const main = dial({
+      value: ready.score,
+      bands: BANDS,
+      target: ready.projected,
+      ticks: [0, 25, 50, 75, 100],
+      label:
+        `Readiness ${ready.score} out of 100, ${ready.distance} points ` +
+        `from ideal: ${ready.zone.label.toLowerCase()}.${after}`,
+    });
+    main.dataset.dial = '';
+    wrap.prepend(main);
+    const distance = this.querySelector<HTMLElement>('[data-distance]')!;
+    distance.hidden = false;
+    distance.textContent = ready.distance
+      ? `${ready.distance} points from ideal`
+      : 'At the ideal';
+    const zone = this.querySelector<HTMLElement>('[data-zone]')!;
+    zone.textContent = ready.zone.label;
+    zone.dataset.zone = ready.zone.id;
+    this.querySelector('[data-autonomy]')!.textContent = ready.zone.autonomy;
+    const projected = this.querySelector<HTMLElement>('[data-projected]')!;
+    projected.hidden = !after;
+    projected.textContent = after
+      ? `Adding the ${files}, in one pull request, would take it to ${ready.projected}.`
+      : '';
+
+    this.querySelector('[data-group-dials]')!.replaceChildren(
+      ...ready.groups.map((g) => {
+        const li = document.createElement('li');
+        li.className = 'group-dial';
+        const text =
+          g.score === null
+            ? `${g.group}: waiting for data`
+            : `${g.group}: ${g.score} out of 100, ${g.passed} of ${g.judged} checks pass`;
+        const small = dial({ value: g.score, bands: BANDS, label: text });
+        small.dataset.groupDial = '';
+        const value = document.createElement('span');
+        value.className = 'group-dial-value tabular';
+        value.textContent = g.score === null ? '—' : String(g.score);
+        value.setAttribute('aria-hidden', 'true');
+        const name = document.createElement('span');
+        name.className = 'group-dial-name';
+        name.textContent = g.group;
+        name.setAttribute('aria-hidden', 'true');
+        li.append(small, value, name);
         return li;
       })
     );

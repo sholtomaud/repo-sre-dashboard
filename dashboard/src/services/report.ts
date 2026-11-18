@@ -106,6 +106,112 @@ export function priorities(checks: Check[]): Check[] {
     );
 }
 
+const WEIGHT: Record<Impact, number> = { high: 3, medium: 2, low: 1 };
+
+/**
+ * The tracker's 0–100 score: checks that can be judged, weighted by impact,
+ * with "could improve" worth half. `null` when nothing can be judged yet.
+ */
+function weightedScore(checks: Check[]): number | null {
+  const judged = checks.filter((c) => c.status !== 'waiting');
+  const total = judged.reduce((s, c) => s + WEIGHT[c.impact], 0);
+  const earned = judged.reduce(
+    (s, c) =>
+      s +
+      WEIGHT[c.impact] *
+        (c.status === 'pass' ? 1 : c.status === 'improve' ? 0.5 : 0),
+    0
+  );
+  return total ? Math.round((earned / total) * 100) : null;
+}
+
+export interface Zone {
+  id: 'not-ready' | 'supervised' | 'ready';
+  /** Where the zone starts on the 0–100 dial. */
+  from: number;
+  label: string;
+  /** The agent autonomy a repository in this zone can carry. */
+  autonomy: string;
+}
+
+export const ZONES: Zone[] = [
+  {
+    id: 'not-ready',
+    from: 0,
+    label: 'Not ready for agents',
+    autonomy: 'Agents should only suggest changes.',
+  },
+  {
+    id: 'supervised',
+    from: 50,
+    label: 'Supervised',
+    autonomy: 'Agents can open pull requests; people review and merge.',
+  },
+  {
+    id: 'ready',
+    from: 80,
+    label: 'Ready',
+    autonomy: 'Agents can merge low-risk changes behind the checks.',
+  },
+];
+
+export interface Readiness {
+  /** Today's score, 0–100. */
+  score: number;
+  /** Points between today's score and the ideal, 100. */
+  distance: number;
+  /** The score once every file fix is added: one setup pull request. */
+  projected: number;
+  /** Ids of the setup checks that a file would fix. */
+  fileFixes: string[];
+  zone: Zone;
+  /** Each group's score, in the audit's order; `null` while it waits. */
+  groups: {
+    group: string;
+    score: number | null;
+    passed: number;
+    judged: number;
+  }[];
+}
+
+/**
+ * How far the repository is from the ideal set-up for working with agents
+ * and for being measured, and how close one setup pull request gets it.
+ */
+export function readiness(audit: Audit | null): Readiness | null {
+  if (!audit) return null;
+  const score = audit.score ?? weightedScore(audit.checks);
+  if (score === null) return null;
+  const fixable = audit.checks.filter(
+    (c) =>
+      c.kind === 'setup' &&
+      (c.status === 'missing' || c.status === 'improve') &&
+      c.fixes.some((f) => f.path)
+  );
+  const ids = new Set(fixable.map((c) => c.id));
+  const after = weightedScore(
+    audit.checks.map((c) => (ids.has(c.id) ? { ...c, status: 'pass' } : c))
+  );
+  const zone = [...ZONES].reverse().find((z) => score >= z.from)!;
+  const groups = [...new Set(audit.checks.map((c) => c.group))].map((group) => {
+    const own = audit.checks.filter((c) => c.group === group);
+    return {
+      group,
+      score: weightedScore(own),
+      passed: own.filter((c) => c.status === 'pass').length,
+      judged: own.filter((c) => c.status !== 'waiting').length,
+    };
+  });
+  return {
+    score,
+    distance: 100 - score,
+    projected: Math.max(score, after ?? score),
+    fileFixes: fixable.map((c) => c.id),
+    zone,
+    groups,
+  };
+}
+
 export interface RepoProfile {
   description: string;
   defaultBranch: string;
