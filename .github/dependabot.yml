@@ -1,14 +1,17 @@
 # Version updates for both npm projects and for the actions this repository
 # uses, in its workflows and in action.yml. Minor and patch updates come
 # grouped, one pull request per ecosystem a week (codeql-action has a group
-# of its own, for every update type); dependabot-auto-merge.yml
-# merges them once CI passes.
+# of its own, for every update type), held back by a 7-day release cooldown
+# (security updates are still immediate); dependabot-auto-merge.yml merges
+# them once CI passes.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types: [minor, patch]
@@ -16,6 +19,8 @@ updates:
     directory: /dashboard
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types: [minor, patch]
@@ -23,6 +28,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       # Every codeql-action step must run the same version, so its init,
       # analyze and upload-sarif steps move together, majors included.

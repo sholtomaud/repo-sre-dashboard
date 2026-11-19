@@ -398,6 +398,8 @@ ${[...profile.ecosystems, { name: 'github-actions', directory: '/' }]
     directory: ${e.directory || '/'}
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types: [minor, patch]`
@@ -414,9 +416,9 @@ ${[...profile.ecosystems, { name: 'github-actions', directory: '/' }]
     evidence: profile.keyFiles.dependencyUpdates
       ? `Configured in ${profile.keyFiles.dependencyUpdates}`
       : 'No Dependabot or Renovate configuration',
-    why: 'Known vulnerabilities are patched in days rather than months, and in small steps that are easy to review. Grouping minor and patch updates keeps the noise down.',
+    why: 'Known vulnerabilities are patched in days rather than months, and in small steps that are easy to review. A 7-day cooldown holds back newly published version updates (security updates are still immediate), keeping hijacked minor or patch releases out of lockfiles.',
     recommendation:
-      'Add Dependabot version updates for every ecosystem in the repository, including the GitHub Actions you use.',
+      'Add Dependabot version updates for every ecosystem in the repository, including the GitHub Actions you use, with a 7-day release cooldown.',
     fixes: [
       {
         path: '.github/dependabot.yml',
@@ -428,24 +430,11 @@ ${[...profile.ecosystems, { name: 'github-actions', directory: '/' }]
   });
 
   const autoMerge = uses(/^dependabot\/fetch-metadata$/);
-  add({
-    id: 'auto-patch',
-    group: 'Supply chain and security',
-    title: 'Patch updates merge themselves once CI passes',
-    kind: 'setup',
-    impact: 'medium',
-    status: autoMerge ? 'pass' : 'improve',
-    evidence: autoMerge
-      ? 'A workflow auto-merges Dependabot pull requests'
-      : 'Dependency pull requests wait for someone to merge them',
-    why: 'Security and patch releases land without anyone having to click merge, while your required checks still have the last word.',
-    recommendation:
-      'Turn on "Allow auto-merge" in Settings → General, require CI in a branch rule, then add this workflow. It approves and auto-merges patch and minor updates; major versions still wait for a person.',
-    fixes: [
-      {
-        path: '.github/workflows/dependabot-auto-merge.yml',
-        language: 'yaml',
-        content: `name: Dependabot auto-merge
+  const hasCooldown = profile.dependencyCooldown === true;
+  const autoMergeWorkflow = {
+    path: '.github/workflows/dependabot-auto-merge.yml',
+    language: 'yaml' as const,
+    content: `name: Dependabot auto-merge
 on: pull_request
 permissions:
   contents: write
@@ -465,8 +454,34 @@ jobs:
           PR: \${{ github.event.pull_request.html_url }}
           GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 `,
-      },
-    ],
+  };
+  const cooldownFix = {
+    path: '.github/dependabot.yml',
+    language: 'yaml' as const,
+    content: dependabotYaml,
+  };
+  add({
+    id: 'auto-patch',
+    group: 'Supply chain and security',
+    title: 'Patch updates merge themselves once CI passes',
+    kind: 'setup',
+    impact: 'medium',
+    status: autoMerge && hasCooldown ? 'pass' : 'improve',
+    evidence:
+      autoMerge && hasCooldown
+        ? 'A workflow auto-merges Dependabot pull requests after a release cooldown'
+        : autoMerge
+          ? 'Auto-merges Dependabot pull requests without a release cooldown'
+          : 'Dependency pull requests wait for someone to merge them',
+    why: 'Security and patch releases land without anyone having to click merge, while required checks still have the last word. Pairing auto-merge with a release cooldown keeps freshly published malicious minor or patch releases from merging before they are pulled.',
+    recommendation: autoMerge
+      ? 'Add a release cooldown (for example `cooldown: { default-days: 7 }` in `.github/dependabot.yml`, or `minimumReleaseAge` in Renovate) so auto-merge only accepts version updates that have aged for a week. Security updates are not held back.'
+      : 'Add a 7-day release cooldown in `.github/dependabot.yml`, turn on "Allow auto-merge" in Settings → General, require CI in a branch rule, then add this workflow. It approves and auto-merges patch and minor updates; major versions still wait for a person.',
+    fixes: autoMerge
+      ? [cooldownFix]
+      : hasCooldown
+        ? [autoMergeWorkflow]
+        : [autoMergeWorkflow, cooldownFix],
     docs: 'https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions',
   });
 
