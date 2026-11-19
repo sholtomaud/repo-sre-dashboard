@@ -302,6 +302,41 @@ test('the project outlook shows a repository that has lost control', async ({
   );
 });
 
+test('the outlook forecasts the human and agentic budgets apart', async ({
+  page,
+}) => {
+  const body = classCsv(21, {
+    security: [0, 1, 0, 0],
+    bug: [0, 2, 1, 1],
+    other: [0, 1, 0, 1],
+  });
+  await withFixture(page, body, 200, STATUS);
+  await page.route('**/data/config.json', (route) =>
+    route.fulfill({
+      json: {
+        repository: 'owner/project',
+        cost: {
+          currency: 'USD',
+          agent_per_issue: 1.5,
+          human_hourly_rate: 95,
+          human_hours_per_issue: 2,
+          monthly_human_budget: 5000,
+          monthly_agentic_budget: null,
+        },
+      },
+    })
+  );
+  await page.goto('/');
+  const cost = page.locator('outlook-panel [data-cost]');
+  await expect(cost).toContainText("people's budget", {
+    ignoreCase: true,
+    timeout: 20000,
+  });
+  await expect(cost).toContainText(
+    "Set monthly-agentic-budget to forecast when agents' budget would be exceeded."
+  );
+});
+
 test('the outlook waits for data with issue classes', async ({ page }) => {
   await withFixture(page);
   await page.goto('/');

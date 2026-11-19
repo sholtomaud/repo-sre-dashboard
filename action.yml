@@ -72,8 +72,15 @@ inputs:
   human-hours-per-issue:
     description: Optional. Hours a person spends per resolved issue.
     default: '2'
+  monthly-human-budget:
+    description: Optional. Monthly budget for people's time resolving issues; the dashboard forecasts when keeping pace would exceed it.
+    default: ''
+  monthly-agentic-budget:
+    description: Optional. Monthly budget for what agents spend resolving issues (API and CI); the dashboard forecasts when keeping pace would exceed it.
+    default: ''
   monthly-budget:
-    description: Optional. Monthly budget for resolving issues; the dashboard forecasts when keeping pace would exceed it.
+    description: Deprecated; use monthly-human-budget, which it stands in for until then.
+    deprecationMessage: monthly-budget is deprecated. Rename it monthly-human-budget, and set monthly-agentic-budget for what agents may spend.
     default: ''
   currency:
     description: Currency code for the cost figures.
@@ -126,6 +133,8 @@ runs:
         SRE_HUMAN_HOURLY_RATE: ${{ inputs.human-hourly-rate }}
         SRE_HUMAN_HOURS_PER_ISSUE: ${{ inputs.human-hours-per-issue }}
         SRE_MONTHLY_BUDGET: ${{ inputs.monthly-budget }}
+        SRE_MONTHLY_HUMAN_BUDGET: ${{ inputs.monthly-human-budget }}
+        SRE_MONTHLY_AGENTIC_BUDGET: ${{ inputs.monthly-agentic-budget }}
         SRE_CURRENCY: ${{ inputs.currency }}
         SRE_WHY_TEXT: ${{ inputs.why }}
         SRE_WHY_URL: ${{ inputs.why-url }}

@@ -1185,9 +1185,9 @@ jobs:
     evidence: costConfigured
       ? 'Cost inputs are set, so the outlook forecasts spending'
       : 'No prices set, so the outlook has no cost figures',
-    why: 'With prices set, the outlook shows what resolving issues costs a month, people against agents, and when keeping pace would exceed a budget.',
+    why: "With prices set, the outlook shows what resolving issues costs a month, people against agents, and when keeping pace would exceed people's budget or agents' budget.",
     recommendation:
-      "Set what an agent costs per resolved issue (your API spend divided by the issues agents resolved), a person's hourly rate, and a monthly budget.",
+      "Set what an agent costs per resolved issue (your API spend divided by the issues agents resolved), a person's hourly rate, and a monthly budget each for people and for agents.",
     fixes: [
       {
         path: '',
@@ -1197,7 +1197,8 @@ jobs:
     agent-cost-per-issue: '1.50'   # API spend ÷ issues agents resolved
     human-hourly-rate: '95'
     human-hours-per-issue: '2'
-    monthly-budget: '5000'
+    monthly-human-budget: '5000'   # people's time
+    monthly-agentic-budget: '50'   # agents' API and CI spend
     currency: USD
 `,
       },

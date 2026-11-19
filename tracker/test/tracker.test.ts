@@ -38,6 +38,7 @@ import {
   type PullRequest,
 } from '../src/pulls.ts';
 import { readCsv, writeCsv } from '../src/csv.ts';
+import { costInputs } from '../src/cost.ts';
 
 test('the schedule is described from the cron line', () => {
   assert.equal(
@@ -932,4 +933,66 @@ test('pull request totals and the 30-day summary', () => {
   assert.equal(summary.by_origin.agent.median_hours_to_merge, 6);
   assert.equal(summary.by_origin.human.still_open, 1);
   assert.deepEqual(summary.agents, { Copilot: 2, Claude: 1 });
+});
+
+test('people and agents each have their own monthly budget', () => {
+  const read = (values: Record<string, string>) => (name: string) =>
+    values[name] ?? '';
+  const both = costInputs(
+    read({
+      SRE_AGENT_COST_PER_ISSUE: '1.5',
+      SRE_HUMAN_HOURLY_RATE: '95',
+      SRE_MONTHLY_HUMAN_BUDGET: '5000',
+      SRE_MONTHLY_AGENTIC_BUDGET: '50',
+    })
+  );
+  assert.deepEqual(both.cost, {
+    currency: 'USD',
+    agent_per_issue: 1.5,
+    human_hourly_rate: 95,
+    human_hours_per_issue: 2,
+    monthly_human_budget: 5000,
+    monthly_agentic_budget: 50,
+  });
+  assert.deepEqual(both.warnings, []);
+
+  // The old input still works for a release, as the human budget, and
+  // the run says to rename it.
+  const old = costInputs(
+    read({ SRE_HUMAN_HOURLY_RATE: '95', SRE_MONTHLY_BUDGET: '5000' })
+  );
+  assert.equal(old.cost!.monthly_human_budget, 5000);
+  assert.equal(old.cost!.monthly_agentic_budget, null);
+  assert.match(old.warnings[0], /monthly-budget is deprecated/);
+  assert.match(old.warnings[0], /monthly-human-budget/);
+  // The new input wins over the old one.
+  const mixed = costInputs(
+    read({
+      SRE_HUMAN_HOURLY_RATE: '95',
+      SRE_MONTHLY_BUDGET: '9000',
+      SRE_MONTHLY_HUMAN_BUDGET: '5000',
+    })
+  );
+  assert.equal(mixed.cost!.monthly_human_budget, 5000);
+  assert.equal(mixed.warnings.length, 1);
+
+  // Costs are never guessed: no prices, no cost figures.
+  assert.equal(
+    costInputs(read({ SRE_MONTHLY_AGENTIC_BUDGET: '50' })).cost,
+    null
+  );
+  // Nonsense is ignored.
+  assert.equal(
+    costInputs(
+      read({ SRE_HUMAN_HOURLY_RATE: '95', SRE_MONTHLY_AGENTIC_BUDGET: 'lots' })
+    ).cost!.monthly_agentic_budget,
+    null
+  );
+});
+
+test('the cost check recommends a budget for people and one for agents', () => {
+  const fix = audit({})['cost'].fixes[0].content;
+  assert.match(fix, /monthly-human-budget: '5000'/);
+  assert.match(fix, /monthly-agentic-budget: '50'/);
+  assert.doesNotMatch(fix, /monthly-budget:/);
 });

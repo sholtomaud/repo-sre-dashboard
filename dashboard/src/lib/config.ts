@@ -62,6 +62,8 @@ export function parseConfig(value: unknown): DashboardConfig {
       ? (limits[key] as number)
       : DEFAULT_LIMITS[key];
   const cost = raw.cost as Record<string, unknown> | null | undefined;
+  const budget = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
   const number = (v: unknown, fallback: number) =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
   return {
@@ -93,10 +95,11 @@ export function parseConfig(value: unknown): DashboardConfig {
           agentPerIssue: number(cost.agent_per_issue, 0),
           humanHourlyRate: number(cost.human_hourly_rate, 0),
           humanHoursPerIssue: number(cost.human_hours_per_issue, 2),
-          monthlyBudget:
-            typeof cost.monthly_budget === 'number'
-              ? cost.monthly_budget
-              : null,
+          // monthly_budget: written by versions before the split.
+          monthlyHumanBudget: budget(
+            cost.monthly_human_budget ?? cost.monthly_budget
+          ),
+          monthlyAgenticBudget: budget(cost.monthly_agentic_budget),
         }
       : null,
   };

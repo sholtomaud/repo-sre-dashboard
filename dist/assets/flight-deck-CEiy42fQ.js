@@ -1,4 +1,4 @@
-import{u as e}from"./index-Cfy_G1Ia.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,o as a,s as o,t as s}from"./format-DYYxeEu5.js";import{n as c,r as l}from"./health-RCxkCncK.js";import{d as u,n as d,t as f}from"./report-IYZEhpFM.js";import{a as p,i as m,n as h,t as g}from"./instruments-CT3J5AsX.js";var _=`<section class="annunciator" aria-labelledby="annunciator-title">
+import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,o as a,s as o,t as s}from"./format-DYYxeEu5.js";import{n as c,r as l}from"./health-RCxkCncK.js";import{d as u,n as d,t as f}from"./report-IYZEhpFM.js";import{a as p,i as m,n as h,t as g}from"./instruments-CT3J5AsX.js";var _=`<section class="annunciator" aria-labelledby="annunciator-title">
   <h3 id="annunciator-title" class="sr-only">Annunciator panel</h3>
   <a class="master" href="#overview" data-master data-state="off"
     >All clear</a
