@@ -416,6 +416,8 @@ jobs:
 });
 
 test('test jobs are named as GitHub reports their checks', () => {
+  // A GitHub expression, kept out of the template literal below.
+  const matrixOs = '${{ matrix.os }}';
   const ci = readWorkflow(
     '.github/workflows/ci.yml',
     `name: CI
@@ -443,11 +445,11 @@ jobs:
     steps:
       - run: npm run lint
   matrix:
-    name: Test (\${{ matrix.os }})
+    name: Test (${matrixOs})
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-    runs-on: \${{ matrix.os }}
+    runs-on: ${matrixOs}
     steps:
       - run: cargo test
 `
