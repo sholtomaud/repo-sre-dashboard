@@ -795,16 +795,27 @@ test('dial and metric cards align across each row', async ({ page }) => {
     timeout: 20000,
   });
 
-  const rowTops = (containerSelector, cardSelector, partSelectors) =>
+  const measureRows = (
+    containerSelector,
+    cardSelector,
+    alignedSelectors,
+    stackSelectors
+  ) =>
     page.evaluate(
-      ({ containerSelector, cardSelector, partSelectors }) => {
+      ({
+        containerSelector,
+        cardSelector,
+        alignedSelectors,
+        stackSelectors,
+      }) => {
         const root = document.querySelector(containerSelector);
         const cards = [...root.querySelectorAll(cardSelector)];
         // Group cards by their top edge (within 2px) so only cards in the
         // same visual row are compared.
         const rows = [];
         for (const card of cards) {
-          const top = Math.round(card.getBoundingClientRect().top);
+          const rect = card.getBoundingClientRect();
+          const top = Math.round(rect.top);
           let row = rows.find((r) => Math.abs(r.top - top) <= 2);
           if (!row) {
             row = { top, cards: [] };
@@ -812,81 +823,110 @@ test('dial and metric cards align across each row', async ({ page }) => {
           }
           row.cards.push(card);
         }
-        return rows
-          .filter((r) => r.cards.length > 1)
-          .map((r) =>
-            Object.fromEntries(
-              partSelectors.map((sel) => [
-                sel,
-                r.cards
-                  .map((c) => c.querySelector(sel))
-                  .filter(Boolean)
-                  .map((el) => Math.round(el.getBoundingClientRect().top)),
-              ])
-            )
-          );
+        const overlaps = [];
+        for (const card of cards) {
+          const els = stackSelectors
+            .map((sel) => ({ sel, el: card.querySelector(sel) }))
+            .filter(({ el }) => el && el.getBoundingClientRect().height > 0);
+          for (let i = 1; i < els.length; i++) {
+            const prev = els[i - 1].el.getBoundingClientRect();
+            const next = els[i].el.getBoundingClientRect();
+            if (prev.bottom > next.top + 1) {
+              overlaps.push(
+                `${els[i - 1].sel} (bottom ${Math.round(prev.bottom)}) overlaps ${els[i].sel} (top ${Math.round(next.top)})`
+              );
+            }
+          }
+        }
+        return {
+          overlaps,
+          rows: rows
+            .filter((r) => r.cards.length > 1)
+            .map((r) => ({
+              cardBottom: r.cards.map((c) =>
+                Math.round(c.getBoundingClientRect().bottom)
+              ),
+              ...Object.fromEntries(
+                alignedSelectors.map((sel) => [
+                  sel,
+                  r.cards
+                    .map((c) => c.querySelector(sel))
+                    .filter(Boolean)
+                    .map((el) => Math.round(el.getBoundingClientRect().top)),
+                ])
+              ),
+            })),
+        };
       },
-      { containerSelector, cardSelector, partSelectors }
+      { containerSelector, cardSelector, alignedSelectors, stackSelectors }
     );
 
-  const assertAligned = (rows, label) => {
+  const assertAligned = ({ rows, overlaps }, label) => {
+    expect(overlaps, `${label} should have no overlapping parts`).toEqual([]);
     expect(
       rows.length,
       `${label} should have a multi-card row`
     ).toBeGreaterThan(0);
     for (const row of rows) {
-      for (const [sel, tops] of Object.entries(row)) {
-        if (tops.length < 2) continue;
-        const spread = Math.max(...tops) - Math.min(...tops);
+      for (const [sel, coords] of Object.entries(row)) {
+        if (coords.length < 2) continue;
+        const spread = Math.max(...coords) - Math.min(...coords);
         expect(
           spread,
-          `${label} ${sel} tops should align (got ${tops.join(', ')})`
+          `${label} ${sel} should align (got ${coords.join(', ')})`
         ).toBeLessThanOrEqual(1);
       }
     }
   };
 
-  assertAligned(
-    await rowTops('[data-dials]', '.dial-card', [
-      '.dial-wrap',
-      '.readout',
-      '.verdict',
-      '.deck-note',
-    ]),
-    'dials'
-  );
-  assertAligned(
-    await rowTops('[data-crew-stats]', 'div', ['dd']),
-    'crew-stats'
-  );
-  assertAligned(
-    await rowTops('[data-dora]', '.metric', [
-      '.metric-value',
-      '.bullet',
-      '.scale',
-      '.metric-note',
-    ]),
-    'dora'
-  );
-  assertAligned(
-    await rowTops('.outlook-cards', '.outlook-card', [
-      '.card-value',
-      '.card-note',
-    ]),
-    'outlook-cards'
-  );
+  for (const width of [1024, 640]) {
+    await page.setViewportSize({ width, height: 900 });
+    assertAligned(
+      await measureRows(
+        '[data-dials]',
+        '.dial-card',
+        ['.dial-wrap', '.readout', '.verdict', '.deck-note'],
+        ['.instrument-head', '.dial-wrap', '.verdict', '.deck-note']
+      ),
+      `dials @${width}px`
+    );
+    assertAligned(
+      await measureRows('[data-crew-stats]', 'div', ['dd'], ['dt', 'dd']),
+      `crew-stats @${width}px`
+    );
+    assertAligned(
+      await measureRows(
+        '[data-dora]',
+        '.metric',
+        ['.metric-value', '.bullet', '.scale', '.metric-note'],
+        ['.metric-label', '.metric-value', '.bullet', '.scale', '.metric-note']
+      ),
+      `dora @${width}px`
+    );
+    assertAligned(
+      await measureRows(
+        '.outlook-cards',
+        '.outlook-card',
+        ['.card-value', '.card-note'],
+        ['dt', '.card-value', '.card-note', '.card-curve']
+      ),
+      `outlook-cards @${width}px`
+    );
+  }
 
   // Even when one card in a row has no verdict (no CI data), its note stays
   // aligned with the notes on sibling cards rather than shifting up.
+  await page.setViewportSize({ width: 1024, height: 900 });
   await withFixture(page, csv, 200, { ...fullReport, ci: null });
   await page.goto('/');
   await expect(page.locator('[data-dials] .dial-card')).toHaveCount(5);
   assertAligned(
-    await rowTops('[data-dials]', '.dial-card', [
-      '.dial-wrap',
-      '.readout',
-      '.deck-note',
-    ]),
+    await measureRows(
+      '[data-dials]',
+      '.dial-card',
+      ['.dial-wrap', '.readout', '.deck-note'],
+      ['.instrument-head', '.dial-wrap', '.verdict', '.deck-note']
+    ),
     'dials without ci verdict'
   );
 });
