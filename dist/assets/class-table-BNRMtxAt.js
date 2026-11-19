@@ -1,4 +1,4 @@
-import{d as e}from"./index-CgDyoNcz.js";import{i as t,t as n}from"./report-IYZEhpFM.js";import{i as r,t as i}from"./format-0i7eZnoE.js";var a=`<article class="card classes">
+import{d as e}from"./index-CIMQL_Wd.js";import{i as t,t as n}from"./report-IYZEhpFM.js";import{i as r,t as i}from"./format-0i7eZnoE.js";var a=`<article class="card classes">
   <header class="panel-head">
     <h2>Issues by class</h2>
     <p>

@@ -1,4 +1,4 @@
-import{d as e}from"./index-CgDyoNcz.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,c as a,l as o,o as s,s as c,t as l}from"./format-0i7eZnoE.js";import{i as u,n as d,r as f}from"./health-DxBEsnbe.js";import{d as p,n as m,t as h}from"./report-IYZEhpFM.js";import{a as g,i as _,n as v,o as y,s as b,t as x}from"./instruments-CMpcUJ8e.js";var S=`<section class="annunciator" aria-labelledby="annunciator-title">
+import{d as e}from"./index-CIMQL_Wd.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,c as a,l as o,o as s,s as c,t as l}from"./format-0i7eZnoE.js";import{i as u,n as d,r as f}from"./health-DxBEsnbe.js";import{d as p,n as m,t as h}from"./report-IYZEhpFM.js";import{a as g,i as _,n as v,o as y,s as b,t as x}from"./instruments-BcSGmNn_.js";var S=`<section class="annunciator" aria-labelledby="annunciator-title">
   <h3 id="annunciator-title" class="sr-only">Annunciator panel</h3>
   <a class="master" href="#overview" data-master data-state="off">All clear</a>
   <ul class="tiles" data-tiles></ul>

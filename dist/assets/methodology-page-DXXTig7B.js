@@ -1,4 +1,4 @@
-import{d as e,n as t,r as n,t as r}from"./index-CgDyoNcz.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
+import{d as e,n as t,r as n,t as r}from"./index-CIMQL_Wd.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -341,14 +341,14 @@ import{d as e,n as t,r as n,t as r}from"./index-CgDyoNcz.js";import{s as i}from"
         </dd>
       </div>
       <div>
-        <dt>Keep-pace cost vs budget (financial doom loop)</dt>
+        <dt>Keep-pace cost vs budget</dt>
         <dd>
           When prices and monthly budgets are set, the monthly cost to keep pace
           with new arrivals divided by each monthly budget (people and agents
-          separately, driven by the worse of the two). Below 0.75× is within
-          budget; above 1× keeping pace exceeds the budget; above 2× is a
-          financial doom loop. Also shows open backlog liability: open issues
-          times the blended cost per issue.
+          separately, driven by the higher ratio). Below 0.75× is within budget;
+          above 1× keeping pace exceeds the budget; above 2× cost pressure runs
+          away. Also shows open backlog liability: open issues times the blended
+          cost per issue.
         </dd>
       </div>
       <div>
