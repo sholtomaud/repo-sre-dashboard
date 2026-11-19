@@ -89,12 +89,62 @@ export interface WorkflowFile {
   onPullRequest: boolean;
   onPush: boolean;
   runsTests: boolean;
+  /**
+   * The checks its test jobs report, as GitHub names them: the job's
+   * `name:`, or its id when it has none.
+   */
+  testJobs: string[];
+  /** Test jobs whose check name depends on a matrix or an expression. */
+  unresolvedTestJobs: number;
   /** Actions it uses, without versions: "actions/checkout". */
   uses: string[];
   /** Actions pinned to a tag or branch rather than a full commit SHA. */
   unpinned: number;
   /** Declares its token permissions. */
   permissions: boolean;
+}
+
+/**
+ * The jobs that run tests, by the name their status check reports under.
+ * A job named with an expression, or run over a matrix, reports under names
+ * only known at run time, so it is counted rather than guessed.
+ */
+function testJobs(text: string): {
+  testJobs: string[];
+  unresolvedTestJobs: number;
+} {
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => /^jobs:\s*(#.*)?$/.test(l));
+  const found = { testJobs: [] as string[], unresolvedTestJobs: 0 };
+  if (start < 0) return found;
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^\S/.test(line) && !line.startsWith('#')) break;
+    body.push(line);
+  }
+  const indent = /^(\s+)\S/.exec(body.find((l) => l.trim()) ?? '')?.[1];
+  if (!indent) return found;
+  const jobStart = new RegExp(`^${indent}([A-Za-z_][\\w-]*):\\s*(#.*)?$`);
+  const jobs: { id: string; lines: string[] }[] = [];
+  for (const line of body) {
+    const id = jobStart.exec(line)?.[1];
+    if (id) jobs.push({ id, lines: [] });
+    else jobs.at(-1)?.lines.push(line);
+  }
+  for (const job of jobs) {
+    const text = job.lines.join('\n');
+    if (!TEST_COMMAND.test(text)) continue;
+    const own = /^(\s+)\S/.exec(job.lines.find((l) => l.trim()) ?? '')?.[1];
+    const name = own
+      ? new RegExp(`^${own}name:\\s*(.+?)\\s*$`, 'm')
+          .exec(text)?.[1]
+          ?.replace(/^(['"])(.*)\1$/, '$2')
+      : undefined;
+    const matrix = own ? new RegExp(`^${own}strategy:`, 'm').test(text) : false;
+    if (matrix || name?.includes('${{')) found.unresolvedTestJobs++;
+    else found.testJobs.push(name ?? job.id);
+  }
+  return found;
 }
 
 /** What a workflow file triggers on and whether it runs tests. */
@@ -111,6 +161,7 @@ export function readWorkflow(path: string, text: string): WorkflowFile {
     ),
     onPush: /\bpush\b/.test(on),
     runsTests: TEST_COMMAND.test(text),
+    ...testJobs(text),
     uses: [
       ...new Set(
         [

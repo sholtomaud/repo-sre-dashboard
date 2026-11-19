@@ -415,6 +415,98 @@ jobs:
   assert.equal(score.waiting, 4);
 });
 
+test('test jobs are named as GitHub reports their checks', () => {
+  // A GitHub expression, kept out of the template literal below.
+  const matrixOs = '${{ matrix.os }}';
+  const ci = readWorkflow(
+    '.github/workflows/ci.yml',
+    `name: CI
+on:
+  pull_request:
+jobs:
+  tracker:
+    name: Tracker and Action
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm ci
+      - run: npm test
+  dashboard:
+    name: "Dashboard"
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx playwright test
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go test ./...
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run lint
+  matrix:
+    name: Test (${matrixOs})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${matrixOs}
+    steps:
+      - run: cargo test
+`
+  );
+  // A check is named after the job's name:, or its id without one; a
+  // matrix job's name depends on the matrix, so it is not guessed.
+  assert.deepEqual(ci.testJobs, ['Tracker and Action', 'Dashboard', 'e2e']);
+  assert.equal(ci.unresolvedTestJobs, 1);
+});
+
+test("the branch ruleset requires the repository's own test checks", () => {
+  const ci = readWorkflow(
+    '.github/workflows/ci.yml',
+    `on: [pull_request]
+jobs:
+  tracker:
+    name: Tracker and Action
+    steps:
+      - run: npm test
+  dashboard:
+    name: Dashboard
+    steps:
+      - run: npm test
+`
+  );
+  const fix = audit({ workflows: [ci] })['branch-rules'].fixes[0].content;
+  assert.match(
+    fix,
+    /"required_status_checks": \[\{ "context": "Tracker and Action" \}, \{ "context": "Dashboard" \}\]/
+  );
+  assert.doesNotMatch(fix, /"context": "test"/);
+
+  // Tests that run only on push are not checks a pull request reports.
+  const pushOnly = readWorkflow(
+    '.github/workflows/ci.yml',
+    `on: [push]
+jobs:
+  test:
+    steps:
+      - run: npm test
+`
+  );
+  // Without a test job it can name, the fix says so rather than guess.
+  for (const workflows of [[], [pushOnly]]) {
+    const check = audit({ workflows })['branch-rules'];
+    assert.match(
+      check.fixes[0].content,
+      /"context": "REPLACE-WITH-CI-JOB-NAME"/
+    );
+    assert.match(
+      check.fixes[0].content,
+      /^# Replace REPLACE-WITH-CI-JOB-NAME/m
+    );
+    assert.match(check.recommendation, /name of each CI job that must pass/);
+  }
+});
+
 test('Dependabot gets an entry for every folder with a manifest', () => {
   const by = audit({
     ecosystems: [

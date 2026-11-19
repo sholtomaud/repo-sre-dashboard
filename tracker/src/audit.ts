@@ -224,6 +224,12 @@ export function runAudit(inputs: AuditInputs): Check[] {
   });
 
   const rules = profile.branch;
+  // The checks a pull request reports from jobs that run the tests.
+  const requiredChecks = [
+    ...new Set(
+      workflows.filter((w) => w.onPullRequest).flatMap((w) => w.testJobs)
+    ),
+  ];
   add({
     id: 'branch-rules',
     group: 'Code and CI',
@@ -252,12 +258,21 @@ export function runAudit(inputs: AuditInputs): Check[] {
           : `${profile.defaultBranch} accepts direct pushes and unchecked merges`,
     why: 'Nothing reaches the default branch without passing CI. It also makes auto-merging dependency updates safe, since they merge only once checks pass.',
     recommendation:
-      'Add a ruleset on the default branch that requires a pull request and your CI checks, and blocks force-pushes.',
+      'Add a ruleset on the default branch that requires a pull request and your CI checks, and blocks force-pushes.' +
+      (requiredChecks.length
+        ? ''
+        : ' The audit could not tell which CI jobs run your tests on pull requests, so put the name of each CI job that must pass in the ruleset.'),
     fixes: [
       {
         path: '',
         language: 'shell',
-        content: `# Requires the GitHub CLI and admin rights on the repository.
+        content: `${
+          requiredChecks.length
+            ? ''
+            : `# Replace REPLACE-WITH-CI-JOB-NAME with the name of each CI job that must
+# pass: its name:, or its id when it has none, as checks show it on a pull request.
+`
+        }# Requires the GitHub CLI and admin rights on the repository.
 gh api repos/${repository}/rulesets --method POST --input - <<'JSON'
 {
   "name": "Protect ${profile.defaultBranch}",
@@ -275,7 +290,12 @@ gh api repos/${repository}/rulesets --method POST --input - <<'JSON'
         "required_review_thread_resolution": false } },
     { "type": "required_status_checks", "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [{ "context": "test" }] } }
+        "required_status_checks": [${(requiredChecks.length
+          ? requiredChecks
+          : ['REPLACE-WITH-CI-JOB-NAME']
+        )
+          .map((context) => `{ "context": ${JSON.stringify(context)} }`)
+          .join(', ')}] } }
   ]
 }
 JSON`,
