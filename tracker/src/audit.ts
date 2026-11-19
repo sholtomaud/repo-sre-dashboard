@@ -7,7 +7,7 @@
  * need history (issues, pull requests, CI runs) and wait until there is
  * enough to judge.
  */
-import type { issueSummary } from './issues.ts';
+import type { agentRecord, issueSummary } from './issues.ts';
 import type { Schedule } from './schedule.ts';
 import type { pullSummary } from './pulls.ts';
 import { AGENT_DOC_TOPICS, type Profile, type ciHealth } from './repo.ts';
@@ -57,6 +57,7 @@ export interface AuditInputs {
   repository: string;
   profile: Profile;
   summary: ReturnType<typeof issueSummary>;
+  agents?: ReturnType<typeof agentRecord>;
   schedule: Schedule;
   pulls: ReturnType<typeof pullSummary>;
   ci: ReturnType<typeof ciHealth>;
@@ -181,6 +182,7 @@ export function runAudit(inputs: AuditInputs): Check[] {
     repository,
     profile,
     summary,
+    agents,
     schedule,
     pulls,
     ci,
@@ -1093,22 +1095,37 @@ gh label create regression --color D93F0B --description "Worked before, broken n
   );
   const agentWork =
     pulls.by_origin.agent.opened + pulls.by_origin.assisted.opened;
+  const issueAttributionGap =
+    agentWork > 0 &&
+    agents !== undefined &&
+    summary.total >= 5 &&
+    agents.opened === 0 &&
+    agents.resolved === 0;
   add({
     id: 'agent-attribution',
     group: 'AI agents',
     title: 'Agent work is attributed',
     kind: 'habit',
     impact: 'medium',
-    status: recent < 5 ? 'waiting' : agentWork > 0 ? 'pass' : 'waiting',
+    status:
+      recent < 5
+        ? 'waiting'
+        : issueAttributionGap
+          ? 'improve'
+          : agentWork > 0
+            ? 'pass'
+            : 'waiting',
     evidence:
       recent < 5
         ? `Judged once there are 5 pull requests in ${pulls.window_days} days (${recent} so far)`
-        : agentWork > 0
-          ? `${agentWork} of ${recent} pull requests in ${pulls.window_days} days show an agent's work`
-          : `None of ${recent} pull requests in ${pulls.window_days} days names an agent: either no agents are used, or their work is not attributed`,
-    why: "Agent work through people's accounts looks human unless it is attributed. Without that, the dashboard undercounts what agents contribute.",
+        : issueAttributionGap
+          ? `${agentWork} of ${recent} pull requests in ${pulls.window_days} days show an agent's work, but no issues are attributed to agents`
+          : agentWork > 0
+            ? `${agentWork} of ${recent} pull requests in ${pulls.window_days} days show an agent's work`
+            : `None of ${recent} pull requests in ${pulls.window_days} days names an agent: either no agents are used, or their work is not attributed`,
+    why: "Agent work through people's accounts looks human unless it is attributed. Without that, the dashboard undercounts what agents contribute across pull requests and issues.",
     recommendation:
-      "Keep the Co-Authored-By trailer that Claude Code, Copilot and Cursor add to commits, or the agent's signature in the pull request description.",
+      'Keep the Co-Authored-By (or Assisted-by) trailer on commits and in squash-merged pull request descriptions, link fixes with "Fixes #123" so closing pull requests credit the agent, and end agent-filed issues with "_Raised by <Agent> (an AI agent)._" (or an `agent-filed` label).',
     fixes: [],
     docs: 'https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/creating-a-commit-with-multiple-authors',
   });
@@ -1372,8 +1389,8 @@ way every time:
   to restore.
 - Close an issue through its fix: "Fixes #123" in the pull request. If it
   will not be done, close it as "not planned" with the reason.
-- If you are an agent, say so in the issue, and only raise issues a person
-  could act on.
+- If you are an agent, end the issue with \`_Raised by <Agent> (an AI agent)._\`
+  (or add an \`agent-filed\` label), and only raise issues a person could act on.
 
 ## Commits and pull requests
 
@@ -1391,8 +1408,10 @@ way every time:
 
 ## Attribution
 
-Keep the Co-Authored-By trailer your agent adds to commits, so agent work is
-counted as agent work.
+Keep the \`Co-Authored-By:\` (or \`Assisted-by:\`) trailer your agent adds to
+commits, preserve it in squash-merged pull request descriptions, and link
+issues with \`Fixes #123\`, so agent work is counted on both pull requests and
+issues.
 `;
 }
 

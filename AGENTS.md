@@ -53,8 +53,8 @@ way every time:
   will not be done, close it as "not planned" with the reason.
 - Issues labelled `repo-sre-audit` are opened and closed by the Action's
   audit: fix the finding rather than closing the issue by hand.
-- If you are an agent, say so in the issue, and only raise issues a person
-  could act on.
+- If you are an agent, end the issue with `_Raised by <Agent> (an AI agent)._`
+  (or add an `agent-filed` label), and only raise issues a person could act on.
 
 ## Commits and pull requests
 
@@ -75,5 +75,7 @@ way every time:
 
 ## Attribution
 
-Keep the Co-Authored-By trailer your agent adds to commits, so agent work is
-counted as agent work.
+Keep the `Co-Authored-By:` (or `Assisted-by:`) trailer your agent adds to
+commits, preserve it in squash-merged pull request descriptions, and link
+issues with `Fixes #123`, so agent work is counted on both pull requests and
+issues.

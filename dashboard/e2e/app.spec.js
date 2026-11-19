@@ -965,3 +965,46 @@ test('day-one activity shows velocity, ratio and sub-day windows in hours', asyn
     'doubles in 11 hours.'
   );
 });
+
+test('flight deck counts human-directed agent PRs in agent merge rate and time to merge', async ({
+  page,
+}) => {
+  await withFixture(page, CSV, 200, {
+    ...STATUS,
+    pulls: {
+      window_days: 30,
+      total: 5,
+      by_origin: {
+        agent: {
+          opened: 0,
+          merged: 0,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: null,
+          median_hours_to_merge: null,
+        },
+        assisted: {
+          opened: 5,
+          merged: 4,
+          closed_unmerged: 1,
+          still_open: 0,
+          merge_rate: 0.8,
+          median_hours_to_merge: 3,
+        },
+        human: {
+          opened: 0,
+          merged: 0,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: null,
+          median_hours_to_merge: null,
+        },
+      },
+      agents: { Claude: 3, Gemini: 2 },
+    },
+  });
+  await page.goto('/');
+  const stats = page.locator('[data-crew-stats]');
+  await expect(stats).toContainText('80.0% / —');
+  await expect(stats).toContainText('3.0 h / —');
+});

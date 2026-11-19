@@ -1217,3 +1217,272 @@ jobs:
     true
   );
 });
+
+test('human-directed agent work counts as agent work on issues', () => {
+  const base = {
+    number: 45,
+    createdAt: '2026-11-19T00:00:00Z',
+    closedAt: '2026-11-19T06:00:00Z',
+    stateReason: 'COMPLETED',
+    body: '### What happened\nNo dials shown',
+    author: { login: 'sholtomaud', __typename: 'User' },
+    labels: { nodes: [{ name: 'bug' }] },
+    closedEvents: { nodes: [] as never[] },
+    reopens: { totalCount: 0 },
+    firstComments: { nodes: [] },
+    lastComments: { nodes: [] },
+  };
+
+  // Issue filed by a human, closed by a human merging an agent-assisted PR.
+  const closedByPr = toIssue({
+    ...base,
+    closedEvents: {
+      nodes: [
+        {
+          actor: { login: 'sholtomaud', __typename: 'User' },
+          closer: {
+            __typename: 'PullRequest',
+            merged: true,
+            author: { login: 'sholtomaud', __typename: 'User' },
+            body: 'Fixes #45',
+            commits: {
+              nodes: [
+                {
+                  commit: {
+                    message:
+                      'fix: baseline\n\nCo-Authored-By: Antigravity (Gemini) <noreply@google.com>',
+                    author: { name: 'Sholto Maud', email: 's@example.com' },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(closedByPr.opener, 'human');
+  assert.equal(closedByPr.closer, 'agent');
+
+  // Issue closed by a commit with an agent trailer or agent commit author.
+  const closedByCommit = toIssue({
+    ...base,
+    closedEvents: {
+      nodes: [
+        {
+          actor: { login: 'sholtomaud', __typename: 'User' },
+          closer: {
+            __typename: 'Commit',
+            message:
+              'fix: ruleset\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>',
+            author: { name: 'Claude', email: 'noreply@anthropic.com' },
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(closedByCommit.closer, 'agent');
+
+  // Issue closed by a squash-merged PR whose commits lost trailers, kept in PR body.
+  const closedBySquashBody = toIssue({
+    ...base,
+    closedEvents: {
+      nodes: [
+        {
+          actor: { login: 'sholtomaud', __typename: 'User' },
+          closer: {
+            __typename: 'PullRequest',
+            merged: true,
+            author: { login: 'sholtomaud', __typename: 'User' },
+            body: 'Fixes #45\n\nGenerated with [Claude Code](https://claude.ai/code)',
+            commits: { nodes: [{ commit: { message: 'fix: baseline' } }] },
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(closedBySquashBody.closer, 'agent');
+
+  // Issue closed by a human PR without any agent attribution stays human.
+  const closedByHumanPr = toIssue({
+    ...base,
+    closedEvents: {
+      nodes: [
+        {
+          actor: { login: 'sholtomaud', __typename: 'User' },
+          closer: {
+            __typename: 'PullRequest',
+            merged: true,
+            author: { login: 'sholtomaud', __typename: 'User' },
+            body: 'Fixes #45',
+            commits: { nodes: [{ commit: { message: 'fix: manual' } }] },
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(closedByHumanPr.closer, 'human');
+
+  // Unmerged PR closer does not credit an agent.
+  const closedByUnmergedPr = toIssue({
+    ...base,
+    closedEvents: {
+      nodes: [
+        {
+          actor: { login: 'sholtomaud', __typename: 'User' },
+          closer: {
+            __typename: 'PullRequest',
+            merged: false,
+            author: { login: 'sholtomaud', __typename: 'User' },
+            body: 'Generated with Claude Code',
+            commits: { nodes: [] },
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(closedByUnmergedPr.closer, 'human');
+
+  // Agent-filed issues via a human account: body disclosure or agent label.
+  const filedByClaude = toIssue({
+    ...base,
+    closedAt: null,
+    body: "### Problem\nDetails\n\n_Raised by Claude Code (an AI agent) at the maintainer's request._",
+  });
+  assert.equal(filedByClaude.opener, 'agent');
+
+  const filedByAntigravity = toIssue({
+    ...base,
+    closedAt: null,
+    body: "*Raised by an AI agent (Antigravity) at the maintainer's request.*",
+  });
+  assert.equal(filedByAntigravity.opener, 'agent');
+
+  const filedWithLabel = toIssue({
+    ...base,
+    closedAt: null,
+    labels: { nodes: [{ name: 'bug' }, { name: 'agent-filed' }] },
+  });
+  assert.equal(filedWithLabel.opener, 'agent');
+
+  // Talking about agents in prose does not make a human issue agent-filed.
+  const humanTalkingAboutAgents = toIssue({
+    ...base,
+    closedAt: null,
+    body: '### What happened\nWhen an agent runs npm ci, the build fails on our repo.',
+  });
+  assert.equal(humanTalkingAboutAgents.opener, 'human');
+});
+
+test('PR attribution recognises newer agents, trailers, commit authors and squash bodies', () => {
+  assert.equal(
+    agentInTrailers(
+      'fix: align\n\nCo-Authored-By: Antigravity (Gemini) <noreply@google.com>'
+    ),
+    'Gemini'
+  );
+  assert.equal(
+    agentInTrailers('fix: align\n\nCo-Authored-By: Antigravity <a@google.com>'),
+    'Antigravity'
+  );
+  assert.equal(
+    agentInTrailers(
+      'fix: align\n\nAssisted-by: Claude Code <noreply@anthropic.com>'
+    ),
+    'Claude'
+  );
+  assert.equal(
+    agentInSignature(
+      'Fixes #1\n\nCo-Authored-By: Antigravity (Gemini) <noreply@google.com>'
+    ),
+    'Gemini'
+  );
+  assert.equal(
+    agentInSignature(
+      "_Raised by Antigravity (an AI agent) at the maintainer's request._"
+    ),
+    'Antigravity'
+  );
+
+  // Agent commit author recognised even when a squash/rebase omits trailers.
+  assert.deepEqual(
+    classifyOrigin(
+      'sholtomaud',
+      'User',
+      'Fixes #1',
+      ['fix: update'],
+      [],
+      [{ name: 'Claude', email: 'noreply@anthropic.com' }]
+    ),
+    { origin: 'assisted', agent: 'Claude', routine: false }
+  );
+
+  // A person named Claude is not misclassified as an agent.
+  assert.deepEqual(
+    classifyOrigin(
+      'claudeshannon',
+      'User',
+      'Fixes #1',
+      ['fix: entropy'],
+      [],
+      [{ name: 'Claude Shannon', email: 'claude@bell-labs.example' }]
+    ),
+    { origin: 'human', agent: null, routine: false }
+  );
+});
+
+test('the agent-attribution audit check flags PR-only attribution when issues have none', () => {
+  const prs = pullSummary(
+    Array.from({ length: 6 }, (_, i) => ({
+      number: i + 1,
+      createdAt: '2026-11-10T00:00:00Z',
+      mergedAt: '2026-11-10T02:00:00Z',
+      closedAt: '2026-11-10T02:00:00Z',
+      origin: 'assisted' as const,
+      agent: 'Claude',
+    })),
+    NOW
+  );
+  const issues = Array.from({ length: 6 }, (_, i) =>
+    issue({
+      number: i + 1,
+      closedAt: '2026-11-11T00:00:00Z',
+      closer: 'human',
+      opener: 'human',
+    })
+  );
+  const mismatch = Object.fromEntries(
+    runAudit({
+      repository: 'owner/project',
+      profile: PROFILE,
+      summary: issueSummary(issues),
+      agents: agentRecord(issues),
+      schedule: describeCron('5 */6 * * *'),
+      pulls: prs,
+      ci: ciHealth([], NOW),
+      delivery: deliveryMetrics(PROFILE, [], issues, NOW),
+      costConfigured: false,
+    }).map((c) => [c.id, c])
+  );
+  assert.equal(mismatch['agent-attribution'].status, 'improve');
+  assert.match(mismatch['agent-attribution'].evidence, /no issues/i);
+
+  const attributedIssues = issues.map((i) => ({
+    ...i,
+    closer: 'agent' as const,
+  }));
+  const healthy = Object.fromEntries(
+    runAudit({
+      repository: 'owner/project',
+      profile: PROFILE,
+      summary: issueSummary(attributedIssues),
+      agents: agentRecord(attributedIssues),
+      schedule: describeCron('5 */6 * * *'),
+      pulls: prs,
+      ci: ciHealth([], NOW),
+      delivery: deliveryMetrics(PROFILE, [], attributedIssues, NOW),
+      costConfigured: false,
+    }).map((c) => [c.id, c])
+  );
+  assert.equal(healthy['agent-attribution'].status, 'pass');
+});

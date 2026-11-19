@@ -11,6 +11,7 @@ import {
 import type { Snapshot } from '../../services/metrics.ts';
 import {
   agentMergedShare,
+  agentPullMetrics,
   formatDuration,
   type Pulls,
 } from '../../services/health.ts';
@@ -505,6 +506,7 @@ export class FlightDeckComponent extends BaseComponent {
     ];
     if (pulls) {
       const merged = agentMergedShare(pulls);
+      const agent = agentPullMetrics(pulls);
       const o = pulls.byOrigin;
       const rate = (r: number | null) => (r === null ? '—' : formatPercent(r));
       stats.push(
@@ -514,11 +516,11 @@ export class FlightDeckComponent extends BaseComponent {
         ],
         [
           'Merge rate, agent / person',
-          `${rate(o.agent.mergeRate)} / ${rate(o.human.mergeRate)}`,
+          `${rate(agent.mergeRate)} / ${rate(o.human.mergeRate)}`,
         ],
         [
           'Time to merge, agent / person',
-          `${formatDuration(o.agent.medianHoursToMerge)} / ${formatDuration(o.human.medianHoursToMerge)}`,
+          `${formatDuration(agent.medianHoursToMerge)} / ${formatDuration(o.human.medianHoursToMerge)}`,
         ]
       );
     }

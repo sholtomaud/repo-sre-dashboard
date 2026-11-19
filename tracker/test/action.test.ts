@@ -96,7 +96,10 @@ function startApi(): Promise<http.Server> {
                 nodes: [
                   issueNode(1, true),
                   issueNode(2, false),
-                  issueNode(3, false),
+                  {
+                    ...issueNode(3, false),
+                    body: "### What happened\nIt broke\n\n_Raised by Antigravity (an AI agent) at the maintainer's request._",
+                  },
                   // The audit's own issue: left out of the figures.
                   {
                     ...issueNode(4, false),
@@ -318,6 +321,7 @@ test(
       assert.equal(config_title(show), 'owner/project');
       assert.equal(status.classes.bug.open, 2);
       assert.equal(status.classes.bug.limit_days, 30);
+      assert.equal(status.agents.opened, 1);
       assert.equal(status.agents.resolved, 1);
       assert.equal(status.pulls.total, 1);
       assert.equal(status.pulls.by_origin.assisted.opened, 1);

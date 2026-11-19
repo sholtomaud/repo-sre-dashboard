@@ -67,3 +67,82 @@ test('pull requests by origin are read from status.json', async () => {
   assert.equal(agentMergedShare(pulls), 0.5);
   assert.equal(parsePulls({}), null);
 });
+
+test('agentPullMetrics counts human-directed (assisted) PRs alongside agent accounts', async () => {
+  const { parsePulls, agentPullMetrics } = await import('./health.ts');
+  const assistedOnly = parsePulls({
+    pulls: {
+      window_days: 30,
+      total: 5,
+      by_origin: {
+        agent: {
+          opened: 0,
+          merged: 0,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: null,
+          median_hours_to_merge: null,
+        },
+        assisted: {
+          opened: 5,
+          merged: 4,
+          closed_unmerged: 1,
+          still_open: 0,
+          merge_rate: 0.8,
+          median_hours_to_merge: 3,
+        },
+        human: {
+          opened: 0,
+          merged: 0,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: null,
+          median_hours_to_merge: null,
+        },
+      },
+      agents: { Claude: 3, Gemini: 2 },
+    },
+  })!;
+  assert.deepEqual(agentPullMetrics(assistedOnly), {
+    mergeRate: 0.8,
+    medianHoursToMerge: 3,
+  });
+
+  const mixed = parsePulls({
+    pulls: {
+      window_days: 30,
+      total: 6,
+      by_origin: {
+        agent: {
+          opened: 4,
+          merged: 2,
+          closed_unmerged: 1,
+          still_open: 1,
+          merge_rate: 2 / 3,
+          median_hours_to_merge: 4,
+        },
+        assisted: {
+          opened: 2,
+          merged: 2,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: 1,
+          median_hours_to_merge: 10,
+        },
+        human: {
+          opened: 0,
+          merged: 0,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: null,
+          median_hours_to_merge: null,
+        },
+      },
+      agents: { Copilot: 4, Claude: 2 },
+    },
+  })!;
+  assert.deepEqual(agentPullMetrics(mixed), {
+    mergeRate: 0.8,
+    medianHoursToMerge: 7,
+  });
+});

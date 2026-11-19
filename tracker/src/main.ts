@@ -162,10 +162,12 @@ export async function main(now = new Date()): Promise<void> {
     if (summaryFile)
       fs.appendFileSync(summaryFile, `> [!WARNING]\n> ${warning}\n\n`);
   }
+  const agents = agentRecord(issues);
   const checks = runAudit({
     repository,
     profile,
     summary,
+    agents,
     schedule,
     pulls: pullStats,
     ci,
@@ -188,7 +190,7 @@ export async function main(now = new Date()): Promise<void> {
     issues: summary,
     responses: responseTimes(issues, now),
     classes: classStatus(issues, limits, now),
-    agents: agentRecord(issues),
+    agents,
     pulls: pullStats,
     repo: profileSummary(profile),
     ci,

@@ -1,4 +1,4 @@
-import{u as e}from"./index-mWtkDaPn.js";import{n as t,t as n}from"./format-CJZsMI5O.js";var r=`<article class="card profile">
+import{u as e}from"./index-UlpsK3dC.js";import{n as t,t as n}from"./format-CJZsMI5O.js";var r=`<article class="card profile">
   <header class="panel-head">
     <h2>Codebase</h2>
     <p data-description>What the repository is made of, and what guards it.</p>
