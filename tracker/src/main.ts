@@ -7,7 +7,9 @@
  *   pulls.csv         daily running totals of pull requests, by origin
  *   status.json       last update, schedule, issue and pull request
  *                     breakdowns, the repository's profile, CI and delivery
- *                     metrics, and the best-practice audit
+ *                     metrics, and the best-practice audit. Its shape is
+ *                     tracker/schema/status-v<STATUS_SCHEMA_VERSION>.json,
+ *                     published beside the dashboard for other readers
  *   config.json       what the dashboard shows: repository, title, queue
  *
  * Inputs come from environment variables set by action.yml.
@@ -38,6 +40,14 @@ import {
   findCron,
   type Schedule,
 } from './schedule.ts';
+
+/**
+ * The version of status.json's shape. Readers other than the dashboard rely
+ * on it: a change that removes or renames a field, or changes its type,
+ * needs a new version and a new schema file. Adding a field needs only the
+ * schema to describe it.
+ */
+export const STATUS_SCHEMA_VERSION = 1;
 
 const env = (name: string, fallback = '') =>
   process.env[name]?.trim() || fallback;
@@ -179,8 +189,12 @@ export async function main(now = new Date()): Promise<void> {
     delivery,
     costConfigured: cost !== null,
   });
+  const runId = env('GITHUB_RUN_ID');
   const status = {
+    schema_version: STATUS_SCHEMA_VERSION,
     updated_at: now.toISOString().replace(/\.\d+Z$/, 'Z'),
+    // The run that wrote this file, where its log and inputs can be seen.
+    run_url: runId ? `${serverUrl}/${repository}/actions/runs/${runId}` : null,
     schedule: {
       cron: schedule.cron,
       runs_per_day: schedule.runsPerDay,

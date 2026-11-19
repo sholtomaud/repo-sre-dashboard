@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { Ajv2020 } from 'ajv/dist/2020.js';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
 const hasSite = fs.existsSync(path.join(root, 'dist', 'index.html'));
@@ -44,6 +45,18 @@ const issueNode = (number: number, closed: boolean) => ({
   },
   lastComments: { nodes: [] },
 });
+
+/** Validates status.json against the schema the Action published. */
+function statusValidator(schema: object) {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: true,
+    validateFormats: false,
+  });
+  const validate = ajv.compile(schema);
+  return (value: unknown) =>
+    validate(value) ? '' : ajv.errorsText(validate.errors);
+}
 
 const config_title = (show: (file: string) => string) =>
   JSON.parse(show('dashboard/data/config.json')).title;
@@ -181,6 +194,7 @@ test(
             'owner/project/.github/workflows/sre.yml@refs/heads/main',
           GITHUB_OUTPUT: output,
           GITHUB_STEP_SUMMARY: summary,
+          GITHUB_RUN_ID: '42',
           RUNNER_TEMP: work,
           SRE_TOKEN: 'test-token',
           SRE_PUBLISH_TO: 'branch',
@@ -227,6 +241,10 @@ test(
         'dashboard/data/data.csv',
         'dashboard/data/status.json',
         'dashboard/data/config.json',
+        'dashboard/schema/status-v1.json',
+        'dashboard/llms.txt',
+        // The branch had no llms.txt of its own, so the root gets one.
+        'llms.txt',
       ]) {
         assert.ok(files.includes(file), `missing ${file}`);
       }
@@ -242,6 +260,54 @@ test(
       assert.match(show('404.html'), /<base href="\/project\/dashboard\/"/);
       const status = JSON.parse(show('dashboard/data/status.json'));
       assert.equal(status.schedule.description, 'every 6 hours');
+
+      // The data is a versioned interface: the tracker's output matches the
+      // schema published beside it, and the schema holds its shape.
+      assert.equal(status.schema_version, 1);
+      assert.equal(
+        status.run_url,
+        `file://${remotes}/owner/project/actions/runs/42`
+      );
+      const validate = statusValidator(
+        JSON.parse(show('dashboard/schema/status-v1.json'))
+      );
+      assert.equal(validate(status), '');
+      assert.match(validate({ ...status, surprise: 1 }), /additional/);
+      const broken = structuredClone(status);
+      delete broken.audit.checks[0].status;
+      assert.match(validate(broken), /status/);
+      assert.match(
+        validate({ ...status, schema_version: 2 }),
+        /schema_version/
+      );
+
+      // Agents and other clients without JavaScript can find the data.
+      const llms = show('dashboard/llms.txt');
+      assert.match(llms, /^# owner\/project\n/);
+      for (const file of [
+        'data/status.json',
+        'data/config.json',
+        'data/data.csv',
+        'data/pulls.csv',
+        'schema/status-v1.json',
+        'methodology/',
+      ]) {
+        assert.ok(
+          llms.includes(`https://owner.github.io/project/dashboard/${file}`),
+          `llms.txt does not link ${file}`
+        );
+      }
+      assert.ok(!llms.includes('agent_queue.csv'), 'no queue configured');
+      assert.match(show('llms.txt'), /project\/dashboard\/llms\.txt/);
+      const page = show('dashboard/index.html');
+      assert.match(
+        page,
+        /<link rel="alternate" type="application\/json" href="data\/status\.json"/
+      );
+      assert.match(
+        page,
+        /<noscript>[\s\S]*data\/status\.json[\s\S]*<\/noscript>/
+      );
       assert.equal(status.issues.total, 3);
       assert.equal(status.issues.open, 2);
       const check = (id: string) =>
@@ -285,7 +351,22 @@ test(
       );
 
       // Other content on the branch is left alone, and a second run updates
-      // in place.
+      // in place. A root llms.txt of the site's own is kept.
+      const clone = path.join(work, 'clone');
+      const git = (...args: string[]) =>
+        execFileSync('git', ['-C', clone, ...args], {
+          env: {
+            ...process.env,
+            GIT_AUTHOR_NAME: 'test',
+            GIT_AUTHOR_EMAIL: 'test@example.com',
+            GIT_COMMITTER_NAME: 'test',
+            GIT_COMMITTER_EMAIL: 'test@example.com',
+          },
+        });
+      execFileSync('git', ['clone', '--quiet', '-b', 'gh-pages', bare, clone]);
+      fs.writeFileSync(path.join(clone, 'llms.txt'), '# My own site\n');
+      git('commit', '--quiet', '-am', 'My own llms.txt');
+      git('push', '--quiet', 'origin', 'gh-pages');
       const second = await steps();
       assert.match(second, /Published|No changes to publish/);
       const after = execFileSync(
@@ -299,6 +380,7 @@ test(
         after.filter((f) => f.startsWith('dashboard/assets/')).length,
         files.filter((f) => f.startsWith('dashboard/assets/')).length
       );
+      assert.equal(show('llms.txt'), '# My own site\n');
     } finally {
       server.close();
       fs.rmSync(work, { recursive: true, force: true });
@@ -358,6 +440,18 @@ test(
         );
       }
       assert.match(read('404.html'), /<base href="\/project\/dashboard\/"/);
+      // The Action owns the whole site, so its root points agents at the data.
+      assert.match(
+        read('llms.txt'),
+        /https:\/\/owner\.github\.io\/project\/dashboard\/llms\.txt/
+      );
+      assert.match(
+        read('dashboard/llms.txt'),
+        /https:\/\/owner\.github\.io\/project\/dashboard\/data\/status\.json/
+      );
+      assert.ok(
+        fs.existsSync(path.join(site, 'dashboard/schema/status-v1.json'))
+      );
       assert.equal(
         JSON.parse(read('dashboard/data/config.json')).repository,
         'owner/project'

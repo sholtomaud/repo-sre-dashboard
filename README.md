@@ -83,6 +83,16 @@ Each run:
 
 The runs need no `npm install`: the dashboard ships prebuilt in [`dist/`](dist/), and the tracker is TypeScript that Node runs directly. Each run rebuilds the data from the API, so nothing has to be kept between runs; a file-based queue's history is fetched back from the live dashboard.
 
+### The data, for agents and other tools
+
+The page is one reader of the data; agents, scripts and CI can read the same files without running it. Beside the dashboard, each run publishes:
+
+- `data/status.json`, with the audit under `audit.checks`, and `data/config.json`, `data/data.csv` and `data/pulls.csv`;
+- `schema/status-v1.json`, the JSON Schema for `status.json`. `status.json` says which version it follows in `schema_version`, and `run_url` links the run that wrote it. Fields may be added within a version; removing or changing one makes a new version;
+- `llms.txt`, which lists the files and says how to read the audit. The site's root gets one pointing to it, unless the site already has its own.
+
+The page links to the data as well (`<link rel="alternate">`, and a list of the files for browsers without JavaScript). The files describe the repository; they give agents no instructions. What an agent may do in the repository belongs in its own `AGENTS.md`.
+
 ## Inputs
 
 | Input                                                                                              | Default                      | What it does                                                                                                                                             |

@@ -15,11 +15,26 @@
     <base href="%BASE_URL%" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <!-- The data the page is drawn from, for agents and other tools that do
+         not run it: see llms.txt. -->
+    <link rel="alternate" type="application/json" href="data/status.json" title="Dashboard data" />
+    <link rel="alternate" type="text/plain" href="llms.txt" title="Data files, for agents" />
     <title>Repo SRE Dashboard</title>
     <script type="module" src="src/main.ts"></script>
   </head>
   <body>
     <app-nav></app-nav>
     <div id="router-outlet"></div>
+    <noscript>
+      <p>
+        This dashboard needs JavaScript. Its data is in plain files:
+        <a href="data/status.json">status.json</a> (the audit and metrics;
+        <a href="schema/status-v1.json">schema</a>),
+        <a href="data/data.csv">data.csv</a>,
+        <a href="data/pulls.csv">pulls.csv</a> and
+        <a href="data/config.json">config.json</a>.
+        <a href="llms.txt">llms.txt</a> describes them.
+      </p>
+    </noscript>
   </body>
 </html>
