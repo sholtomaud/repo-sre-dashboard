@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.2.1...v1.2.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* count human-directed agent work in issue, PR and audit attribution ([e5efb9d](https://github.com/sholtomaud/repo-sre-dashboard/commit/e5efb9d31f127073d885485409df9a047882b93a))
+* count human-directed agent work in issue, PR and audit attribution ([85716ec](https://github.com/sholtomaud/repo-sre-dashboard/commit/85716ecfc88cf87bcdc5c8fed47cb28c93bf88b0))
+
 ## [1.2.1](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.2.0...v1.2.1) (2026-11-19)
 
 
