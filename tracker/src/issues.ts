@@ -3,6 +3,19 @@
  * issue it is, and how long it took to get a response and a resolution.
  */
 import type { GitHubClient } from './github.ts';
+import {
+  AGENT_ISSUE_LABEL,
+  AGENT_WORDS,
+  ROUTINE_BOT,
+  agentInCommitAuthor,
+  agentInSignature,
+  agentInTrailers,
+  classifyOrigin,
+  isAgent,
+  type CommitAuthor,
+} from './agents.ts';
+
+export { AGENT_ISSUE_LABEL, AGENT_WORDS, isAgent };
 
 /** How a closed issue was closed, judged only from what GitHub records. */
 export const EVIDENCE = [
@@ -54,38 +67,12 @@ export const AUDIT_LABEL = 'repo-sre-audit';
 export const INCIDENT_LABEL =
   /^(incident|outage|regression|sev[ -]?[0-3]|p0|production|prod[ -]issue)$/i;
 
-/** Login fragments that mark an account as automation or an AI agent. */
-export const AGENT_WORDS = [
-  'agent',
-  'bot',
-  'automation',
-  'copilot',
-  'claude',
-  'devin',
-  'codex',
-  'cursor',
-  'sweep',
-  'jules',
-];
-
 /** Routine automation whose comments are not a response to the reporter. */
 const NOT_A_RESPONSE = new Set([
   'github-actions[bot]',
   'dependabot[bot]',
   'stale[bot]',
 ]);
-
-export function isAgent(
-  login: string | null | undefined,
-  type: string | null | undefined,
-  extra: string[] = []
-): boolean {
-  const name = (login ?? '').toLowerCase();
-  if (!name) return false;
-  if (type === 'Bot') return true;
-  if (extra.some((l) => l.toLowerCase() === name)) return true;
-  return AGENT_WORDS.some((word) => name.includes(word));
-}
 
 /** Issue-form and template headings that mark a bug report or a request. */
 const BUG_HEADINGS = [
@@ -255,7 +242,20 @@ query($owner: String!, $name: String!, $cursor: String) {
           nodes {
             ... on ClosedEvent {
               actor { login __typename }
-              closer { __typename ... on PullRequest { merged } }
+              closer {
+                __typename
+                ... on PullRequest {
+                  merged
+                  body
+                  author { login __typename }
+                  commits(last: 25) { nodes { commit { message author { name email } } } }
+                  mergeCommit { message author { name email } }
+                }
+                ... on Commit {
+                  message
+                  author { name email user { login } }
+                }
+              }
             }
           }
         }
@@ -266,6 +266,27 @@ query($owner: String!, $name: String!, $cursor: String) {
     }
   }
 }`;
+
+interface IssueCloserNode {
+  __typename: string;
+  merged?: boolean;
+  body?: string | null;
+  author?: {
+    login?: string | null;
+    __typename?: string | null;
+    name?: string | null;
+    email?: string | null;
+    user?: { login?: string | null } | null;
+  } | null;
+  commits?: {
+    nodes: { commit: { message: string; author?: CommitAuthor | null } }[];
+  } | null;
+  mergeCommit?: {
+    message?: string | null;
+    author?: CommitAuthor | null;
+  } | null;
+  message?: string | null;
+}
 
 interface IssueNode {
   number: number;
@@ -279,7 +300,7 @@ interface IssueNode {
   closedEvents: {
     nodes: ({
       actor: { login: string; __typename: string } | null;
-      closer: { __typename: string; merged?: boolean } | null;
+      closer: IssueCloserNode | null;
     } | null)[];
   };
   reopens: { totalCount: number };
@@ -287,6 +308,50 @@ interface IssueNode {
     nodes: { author: { login: string } | null; createdAt: string }[];
   };
   lastComments: { nodes: { author: { login: string } | null; body: string }[] };
+}
+
+function closedByAgent(
+  actor: { login: string; __typename: string } | null,
+  closer: IssueCloserNode | null,
+  agentLogins: string[]
+): boolean {
+  if (isAgent(actor?.login, actor?.__typename, agentLogins)) return true;
+  if (!closer) return false;
+  if (closer.__typename === 'PullRequest') {
+    if (closer.merged === false) return false;
+    const commitMessages =
+      closer.commits?.nodes.map((c) => c.commit.message) ?? [];
+    const commitAuthors: (CommitAuthor | null | undefined)[] =
+      closer.commits?.nodes.map((c) => c.commit.author) ?? [];
+    if (closer.mergeCommit?.message) {
+      commitMessages.push(closer.mergeCommit.message);
+    }
+    if (closer.mergeCommit?.author) {
+      commitAuthors.push(closer.mergeCommit.author);
+    }
+    const { origin, routine } = classifyOrigin(
+      closer.author?.login ?? null,
+      closer.author?.__typename ?? null,
+      closer.body ?? '',
+      commitMessages,
+      agentLogins,
+      commitAuthors
+    );
+    return !routine && origin !== 'human';
+  }
+  if (closer.__typename === 'Commit') {
+    const login = closer.author?.user?.login ?? null;
+    if (
+      login &&
+      !ROUTINE_BOT.test(login) &&
+      isAgent(login, null, agentLogins)
+    ) {
+      return true;
+    }
+    if (agentInTrailers(closer.message ?? '') !== null) return true;
+    if (agentInCommitAuthor(closer.author) !== null) return true;
+  }
+  return false;
 }
 
 /** Turns one GraphQL issue into the tracker's record. */
@@ -297,12 +362,16 @@ export function toIssue(node: IssueNode, agentLogins: string[] = []): Issue {
   const labels = node.labels.nodes.map((l) => l.name);
   const isClosed = node.closedAt !== null;
   const kind = classifyKind(node.body, labels);
+  const openedByAgent =
+    isAgent(author, node.author?.__typename, agentLogins) ||
+    labels.some((l) => AGENT_ISSUE_LABEL.test(l.trim())) ||
+    agentInSignature(node.body ?? '') !== null;
   return {
     number: node.number,
     createdAt: node.createdAt,
     closedAt: node.closedAt,
     closer: isClosed
-      ? isAgent(actor?.login, actor?.__typename, agentLogins)
+      ? closedByAgent(actor, closed?.closer ?? null, agentLogins)
         ? 'agent'
         : 'human'
       : null,
@@ -321,9 +390,7 @@ export function toIssue(node: IssueNode, agentLogins: string[] = []): Issue {
       : null,
     kind,
     labelled: labels.length > 0,
-    opener: isAgent(author, node.author?.__typename, agentLogins)
-      ? 'agent'
-      : 'human',
+    opener: openedByAgent ? 'agent' : 'human',
     issueClass: classifyClass(node.title ?? null, node.body, labels, kind),
     reopened: node.reopens.totalCount > 0,
     incident: labels.some((l) => INCIDENT_LABEL.test(l.trim())),

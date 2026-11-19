@@ -116,3 +116,31 @@ export function agentMergedShare(pulls: Pulls): number | null {
     (pulls.byOrigin.agent.merged + pulls.byOrigin.assisted.merged) / merged
   );
 }
+
+/**
+ * Combined merge rate and time to merge for pull requests written by agents
+ * directly (`agent`) or with human direction (`assisted`).
+ */
+export function agentPullMetrics(pulls: Pulls): {
+  mergeRate: number | null;
+  medianHoursToMerge: number | null;
+} {
+  const { agent, assisted } = pulls.byOrigin;
+  const merged = agent.merged + assisted.merged;
+  const decided = merged + agent.closedUnmerged + assisted.closedUnmerged;
+  const mergeRate = decided > 0 ? merged / decided : null;
+
+  const timed = [agent, assisted].filter(
+    (s) => s.merged > 0 && s.medianHoursToMerge !== null
+  );
+  let medianHoursToMerge: number | null = null;
+  if (timed.length === 1) {
+    medianHoursToMerge = timed[0].medianHoursToMerge;
+  } else if (timed.length > 1) {
+    const total = timed.reduce((sum, s) => sum + s.merged, 0);
+    medianHoursToMerge =
+      timed.reduce((sum, s) => sum + s.merged * s.medianHoursToMerge!, 0) /
+      total;
+  }
+  return { mergeRate, medianHoursToMerge };
+}

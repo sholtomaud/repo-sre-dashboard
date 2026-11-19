@@ -10,11 +10,25 @@
  * or signature are invisible, so the agent counts are a lower bound.
  */
 import type { GitHubClient } from './github.ts';
-import { AGENT_WORDS, isAgent } from './issues.ts';
+import {
+  ORIGINS,
+  agentInCommitAuthor,
+  agentInSignature,
+  agentInTrailers,
+  classifyOrigin,
+  type CommitAuthor,
+  type Origin,
+} from './agents.ts';
 
-export const ORIGINS = ['agent', 'assisted', 'human'] as const;
-/** agent: an agent's account; assisted: a person with an agent; human: neither. */
-export type Origin = (typeof ORIGINS)[number];
+export {
+  ORIGINS,
+  agentInCommitAuthor,
+  agentInSignature,
+  agentInTrailers,
+  classifyOrigin,
+  type CommitAuthor,
+  type Origin,
+};
 
 export interface PullRequest {
   number: number;
@@ -38,91 +52,6 @@ export function isRepair(title: string, labels: string[]): boolean {
   );
 }
 
-/** Agent names, as they appear in trailers and signatures. */
-const AGENT_NAMES = [
-  'Claude',
-  'Copilot',
-  'Cursor',
-  'Codex',
-  'Devin',
-  'Jules',
-  'Gemini',
-  'Aider',
-  'Sweep',
-  'Amazon Q',
-  'Kiro',
-  'Windsurf',
-  'Cline',
-  'OpenHands',
-];
-
-const TRAILER = /^co-authored-by:\s*(.+)$/gim;
-const SIGNATURE = new RegExp(
-  `(?:generated|created|written|authored)\\s+(?:with|by)\\s+\\[?(${AGENT_NAMES.join('|')})`,
-  'i'
-);
-
-/** The agent named in a commit message's Co-Authored-By trailers, if any. */
-export function agentInTrailers(message: string): string | null {
-  for (const match of message.matchAll(TRAILER)) {
-    const who = match[1].toLowerCase();
-    const name = AGENT_NAMES.find((n) => who.includes(n.toLowerCase()));
-    if (name) return name;
-    if (
-      who.includes('[bot]') ||
-      AGENT_WORDS.some((w) => who.includes(w) && w !== 'bot')
-    ) {
-      return 'an agent';
-    }
-  }
-  return null;
-}
-
-/** The agent named in a description's signature, if any. */
-export function agentInSignature(body: string): string | null {
-  const match = SIGNATURE.exec(body);
-  return match
-    ? (AGENT_NAMES.find((n) => n.toLowerCase() === match[1].toLowerCase()) ??
-        match[1])
-    : null;
-}
-
-const KNOWN_ACCOUNTS: [RegExp, string][] = [
-  [/copilot/i, 'Copilot'],
-  [/claude/i, 'Claude'],
-  [/devin/i, 'Devin'],
-  [/codex|openai/i, 'Codex'],
-  [/cursor/i, 'Cursor'],
-  [/jules|google/i, 'Jules'],
-];
-
-/** Routine automation that is not an AI agent writing code. */
-const ROUTINE =
-  /^(dependabot|renovate|github-actions|pre-commit-ci|mergify|allcontributors)/i;
-
-/** Who wrote a pull request. */
-export function classifyOrigin(
-  author: string | null,
-  authorType: string | null,
-  body: string,
-  commitMessages: string[],
-  agentLogins: string[] = []
-): { origin: Origin; agent: string | null; routine: boolean } {
-  const login = author ?? '';
-  if (ROUTINE.test(login))
-    return { origin: 'agent', agent: null, routine: true };
-  if (isAgent(login, authorType, agentLogins)) {
-    const known = KNOWN_ACCOUNTS.find(([pattern]) => pattern.test(login));
-    return { origin: 'agent', agent: known ? known[1] : login, routine: false };
-  }
-  const named =
-    commitMessages.map(agentInTrailers).find((n) => n !== null) ??
-    agentInSignature(body);
-  return named
-    ? { origin: 'assisted', agent: named, routine: false }
-    : { origin: 'human', agent: null, routine: false };
-}
-
 const PULLS_QUERY = `
 query($owner: String!, $name: String!, $cursor: String) {
   repository(owner: $owner, name: $name) {
@@ -132,7 +61,8 @@ query($owner: String!, $name: String!, $cursor: String) {
         number title createdAt mergedAt closedAt body baseRefName
         labels(first: 10) { nodes { name } }
         author { login __typename }
-        commits(last: 25) { nodes { commit { message } } }
+        commits(last: 25) { nodes { commit { message author { name email } } } }
+        mergeCommit { message author { name email } }
       }
     }
   }
@@ -148,7 +78,13 @@ interface PullNode {
   baseRefName?: string | null;
   labels?: { nodes: { name: string }[] } | null;
   author: { login: string; __typename: string } | null;
-  commits: { nodes: { commit: { message: string } }[] };
+  commits: {
+    nodes: { commit: { message: string; author?: CommitAuthor | null } }[];
+  };
+  mergeCommit?: {
+    message?: string | null;
+    author?: CommitAuthor | null;
+  } | null;
 }
 
 /**
@@ -174,12 +110,22 @@ export async function fetchPulls(
     } = await client.graphql(PULLS_QUERY, { owner, name, cursor });
     const page = data.repository.pullRequests;
     for (const node of page.nodes) {
+      const commitMessages = node.commits.nodes.map((c) => c.commit.message);
+      const commitAuthors: (CommitAuthor | null | undefined)[] =
+        node.commits.nodes.map((c) => c.commit.author);
+      if (node.mergeCommit?.message) {
+        commitMessages.push(node.mergeCommit.message);
+      }
+      if (node.mergeCommit?.author) {
+        commitAuthors.push(node.mergeCommit.author);
+      }
       const { origin, agent, routine } = classifyOrigin(
         node.author?.login ?? null,
         node.author?.__typename ?? null,
         node.body ?? '',
-        node.commits.nodes.map((c) => c.commit.message),
-        agentLogins
+        commitMessages,
+        agentLogins,
+        commitAuthors
       );
       if (routine) continue;
       pulls.push({
