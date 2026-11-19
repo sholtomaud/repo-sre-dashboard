@@ -1025,3 +1025,44 @@ test('daily rows start with a zero baseline before the first issue', () => {
   assert.equal(empty[0].date, '2026-11-19');
   assert.equal(empty[0].open, 0);
 });
+
+test("the audit's own fixes pin every action to a commit SHA and pass pinned-actions", () => {
+  const ecosystems = ['npm', 'pip', 'gomod', 'maven', 'gradle', 'cargo'];
+  const generated = [];
+  for (const name of ecosystems) {
+    const checks = Object.values(
+      audit({ ecosystems: [{ name, directory: '/' }] })
+    );
+    for (const check of checks) {
+      for (const fix of check.fixes) {
+        if (fix.language !== 'yaml') continue;
+        const usesLines = [
+          ...fix.content.matchAll(/^\s*-?\s*uses:\s*(.+)$/gm),
+        ].map((m) => m[1].trim());
+        if (!usesLines.length) continue;
+        const workflow = readWorkflow(
+          fix.path || `.github/workflows/${check.id}-${name}.yml`,
+          fix.content
+        );
+        assert.equal(
+          workflow.unpinned,
+          0,
+          `${check.id} (${name}) has unpinned action(s):\n${usesLines.join('\n')}`
+        );
+        for (const line of usesLines) {
+          assert.match(
+            line,
+            /@[0-9a-f]{40}\s+#\s+v\d/,
+            `${check.id} (${name}) should include a version comment on: ${line}`
+          );
+        }
+        generated.push(workflow);
+      }
+    }
+  }
+  assert.ok(generated.length > 0, 'expected workflow fixes to test');
+  assert.equal(
+    audit({ workflows: generated })['pinned-actions'].status,
+    'pass'
+  );
+});
