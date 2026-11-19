@@ -4,7 +4,7 @@
     ".": {
       "release-type": "simple",
       "package-name": "repo-sre-dashboard",
-      "release-as": "1.0.0"
+      "include-component-in-tag": false
     }
   }
 }
