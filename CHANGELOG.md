@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.1.0...v1.1.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* require the repository's own test checks in the branch ruleset ([4f3003d](https://github.com/sholtomaud/repo-sre-dashboard/commit/4f3003dd2b585e8fb7c8965dd35168f9f9e61778))
+* require the repository's own test checks in the branch ruleset ([64a750b](https://github.com/sholtomaud/repo-sre-dashboard/commit/64a750bf34c7807e10a43ef22de2f2fbde410a7f)), closes [#32](https://github.com/sholtomaud/repo-sre-dashboard/issues/32)
+
 ## [1.1.0](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.0.0...v1.1.0) (2026-11-19)
 
 
