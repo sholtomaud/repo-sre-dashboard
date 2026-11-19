@@ -181,13 +181,13 @@ test('daily rows are running totals', () => {
   );
   assert.deepEqual(
     rows.map((r) => r.open),
-    [2, 2, 1]
+    [0, 2, 2, 1]
   );
-  assert.equal(rows[2].agent_closed, 1);
-  assert.equal(rows[2].human_closed, 1);
-  assert.equal(rows[2].closed_fix_referenced, 1);
-  assert.equal(rows[2].behavior_created, 2);
-  assert.equal(rows[2].behavior_closed, 1);
+  assert.equal(rows[3].agent_closed, 1);
+  assert.equal(rows[3].human_closed, 1);
+  assert.equal(rows[3].closed_fix_referenced, 1);
+  assert.equal(rows[3].behavior_created, 2);
+  assert.equal(rows[3].behavior_closed, 1);
 });
 
 test('response times cover recent issues', () => {
@@ -829,7 +829,7 @@ test('the agent record counts filings and how closures held', () => {
 });
 
 test('daily rows carry per-class totals by who opened and closed', () => {
-  const [row] = dailyRows(
+  const [before, row] = dailyRows(
     [
       issue({ opener: 'agent', issueClass: 'security' }),
       issue({
@@ -841,6 +841,7 @@ test('daily rows carry per-class totals by who opened and closed', () => {
     ],
     '2026-11-01'
   );
+  assert.equal(before.security_opened_by_agents, 0);
   assert.equal(row.security_opened_by_agents, 1);
   assert.equal(row.security_opened_by_humans, 1);
   assert.equal(row.security_closed_by_humans, 1);
@@ -995,4 +996,32 @@ test('the cost check recommends a budget for people and one for agents', () => {
   assert.match(fix, /monthly-human-budget: '5000'/);
   assert.match(fix, /monthly-agentic-budget: '50'/);
   assert.doesNotMatch(fix, /monthly-budget:/);
+});
+
+test('daily rows start with a zero baseline before the first issue', () => {
+  const rows = dailyRows(
+    [
+      issue({ createdAt: '2026-11-19T03:00:00Z' }),
+      issue({
+        createdAt: '2026-11-19T04:00:00Z',
+        closedAt: '2026-11-19T08:00:00Z',
+        closer: 'human',
+        evidence: 'fix_referenced',
+      }),
+    ],
+    '2026-11-19'
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.date, r.open, r.human_closed]),
+    [
+      ['2026-11-18', 0, 0],
+      ['2026-11-19', 1, 1],
+    ]
+  );
+
+  // With no issues at all, there is no prior baseline to invent.
+  const empty = dailyRows([], '2026-11-19');
+  assert.equal(empty.length, 1);
+  assert.equal(empty[0].date, '2026-11-19');
+  assert.equal(empty[0].open, 0);
 });

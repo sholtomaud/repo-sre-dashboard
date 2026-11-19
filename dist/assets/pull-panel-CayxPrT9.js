@@ -1,4 +1,4 @@
-import{u as e}from"./index-lXWZ3GtR.js";import{n as t,r as n,t as r}from"./health-RCxkCncK.js";import{a as i,t as a}from"./format-DYYxeEu5.js";var o=`<article class="card pulls">
+import{u as e}from"./index-mWtkDaPn.js";import{n as t,r as n,t as r}from"./health-RCxkCncK.js";import{a as i,t as a}from"./format-CJZsMI5O.js";var o=`<article class="card pulls">
   <header class="pulls-head">
     <h2>Pull requests</h2>
     <p>

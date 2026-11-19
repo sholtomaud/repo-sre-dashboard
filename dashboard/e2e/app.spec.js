@@ -930,3 +930,38 @@ test('dial and metric cards align across each row', async ({ page }) => {
     'dials without ci verdict'
   );
 });
+
+test('day-one activity shows velocity, ratio and sub-day windows in hours', async ({
+  page,
+}) => {
+  const dayOneCsv = `date,open,agent_closed,human_closed
+2026-11-18,0,0,0
+2026-11-19,8,0,4
+`;
+  const dayOneStatus = {
+    ...STATUS,
+    updated_at: '2026-11-19T11:00:00Z',
+  };
+  await withFixture(page, dayOneCsv, 200, dayOneStatus);
+  await page.goto('/');
+
+  const velocity = page.locator('[data-kpi="Resolution velocity"]');
+  await expect(velocity.locator('[data-velocity]')).toHaveText('8.7');
+  await expect(velocity.locator('[data-velocity-verdict]')).toContainText(
+    'behind new issues'
+  );
+  await expect(velocity.locator('[data-open-delta]')).toHaveText(
+    '+8 in 11 hours'
+  );
+
+  const ratio = page.locator('[data-kpi="Opened per issue closed"]');
+  await expect(ratio.locator('[data-ratio]')).toHaveText('3.0');
+  await expect(ratio.locator('[data-ratio-tag]')).toBeVisible();
+  await expect(ratio.locator('[data-ratio-tag]')).toHaveText('3.0×');
+  await expect(ratio.locator('[data-ratio-window]')).toHaveText(
+    'Issues opened for each one closed, last 11 hours.'
+  );
+  await expect(ratio.locator('[data-ratio-text]')).toContainText(
+    'doubles in 11 hours.'
+  );
+});

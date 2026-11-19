@@ -38,6 +38,16 @@ export function formatDays(days: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+/** A duration in days, or hours when under a day: `11 hours`, `1 day`, `7 days`. */
+export function formatSpan(days: number): string {
+  if (days < 1) {
+    const hours = Math.max(1, Math.round(days * 24));
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  }
+  const rounded = Math.round(days);
+  return `${rounded} ${rounded === 1 ? 'day' : 'days'}`;
+}
+
 /** `Nov 16, 2026, 12:05 UTC` from an ISO time. */
 export function formatDateTime(iso: string): string {
   const text = new Date(iso).toLocaleString('en-US', {
