@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.1.1...v1.2.0) (2026-11-19)
+
+
+### Features
+
+* separate monthly budgets for people and agents ([a8cf735](https://github.com/sholtomaud/repo-sre-dashboard/commit/a8cf735c8c472e4028833ceb873572695f5c7853))
+
 ## [1.1.1](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.1.0...v1.1.1) (2026-11-19)
 
 
