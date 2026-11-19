@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { Ajv2020 } from 'ajv/dist/2020.js';
+import { compileSchema } from './json-schema.ts';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
 const hasSite = fs.existsSync(path.join(root, 'dist', 'index.html'));
@@ -48,14 +48,8 @@ const issueNode = (number: number, closed: boolean) => ({
 
 /** Validates status.json against the schema the Action published. */
 function statusValidator(schema: object) {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strict: true,
-    validateFormats: false,
-  });
-  const validate = ajv.compile(schema);
-  return (value: unknown) =>
-    validate(value) ? '' : ajv.errorsText(validate.errors);
+  const validate = compileSchema(schema);
+  return (value: unknown) => validate(value).join('; ');
 }
 
 const config_title = (show: (file: string) => string) =>
