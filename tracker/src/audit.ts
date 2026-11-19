@@ -92,34 +92,68 @@ const CODEQL: Record<string, string> = {
   Swift: 'swift',
 };
 
+/**
+ * Pinned third-party actions used in audit fix snippets, so copying a fix
+ * passes the `pinned-actions` check without manual editing.
+ */
+const ACTIONS = {
+  checkout:
+    'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1',
+  setupNode:
+    'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0',
+  setupPython:
+    'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0',
+  setupGo: 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0',
+  setupJava:
+    'actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0',
+  fetchMetadata:
+    'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0',
+  dependencyReview:
+    'actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0',
+  codeqlInit:
+    'github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3',
+  codeqlAnalyze:
+    'github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3',
+  codeqlUploadSarif:
+    'github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3',
+  scorecard:
+    'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0',
+  releasePlease:
+    'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0',
+  claudeCode:
+    'anthropics/claude-code-action@469588f42e6b1e94cd14ad09dccfeaec772ce0fd # v1.0.280',
+  dashboard:
+    'sholtomaud/repo-sre-dashboard@65dcc5485c27beb4241db9427fc9707b026307de # v1.2.0',
+} as const;
+
 /** A starter CI job for the main ecosystem. */
 function ciWorkflow(ecosystems: string[]): string {
   const steps: Record<string, string> = {
-    npm: `      - uses: actions/setup-node@v4
+    npm: `      - uses: ${ACTIONS.setupNode}
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test`,
-    pip: `      - uses: actions/setup-python@v5
+    pip: `      - uses: ${ACTIONS.setupPython}
         with:
           python-version: '3.12'
           cache: pip
       - run: pip install -e '.[test]' || pip install -r requirements.txt
       - run: python -m pytest`,
-    gomod: `      - uses: actions/setup-go@v5
+    gomod: `      - uses: ${ACTIONS.setupGo}
         with:
           go-version: stable
       - run: go vet ./...
       - run: go test ./...`,
     cargo: `      - run: cargo test --all-features`,
-    maven: `      - uses: actions/setup-java@v4
+    maven: `      - uses: ${ACTIONS.setupJava}
         with:
           distribution: temurin
           java-version: 21
           cache: maven
       - run: mvn -B verify`,
-    gradle: `      - uses: actions/setup-java@v4
+    gradle: `      - uses: ${ACTIONS.setupJava}
         with:
           distribution: temurin
           java-version: 21
@@ -137,7 +171,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: ${ACTIONS.checkout}
 ${steps[main]}
 `;
 }
@@ -422,7 +456,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: ${ACTIONS.fetchMetadata}
       - if: steps.meta.outputs.update-type != 'version-update:semver-major'
         run: |
           gh pr review --approve "$PR"
@@ -498,8 +532,8 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+      - uses: ${ACTIONS.checkout}
+      - uses: ${ACTIONS.dependencyReview}
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
@@ -547,12 +581,12 @@ jobs:
       matrix:
         language: [${codeqlLanguages.join(', ')}]
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: ${ACTIONS.checkout}
+      - uses: ${ACTIONS.codeqlInit}
         with:
           languages: \${{ matrix.language }}
           build-mode: none
-      - uses: github/codeql-action/analyze@v3
+      - uses: ${ACTIONS.codeqlAnalyze}
 `,
           },
         ]
@@ -596,15 +630,15 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: ${ACTIONS.checkout}
         with:
           persist-credentials: false
-      - uses: ossf/scorecard-action@v2
+      - uses: ${ACTIONS.scorecard}
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: ${ACTIONS.codeqlUploadSarif}
         with:
           sarif_file: results.sarif
 `,
@@ -635,8 +669,8 @@ jobs:
         path: '',
         language: 'shell',
         content: `npx pin-github-action .github/workflows/*.yml
-# uses: actions/checkout@v4  becomes
-# uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4`,
+# uses: actions/checkout@v7  becomes
+# uses: ${ACTIONS.checkout}`,
       },
     ],
     docs: 'https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions',
@@ -901,7 +935,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: ${ACTIONS.releasePlease}
         with:
           release-type: simple
 `,
@@ -1100,8 +1134,8 @@ jobs:
     if: github.event_name == 'issues' || contains(github.event.comment.body, '@claude')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: anthropics/claude-code-action@v1
+      - uses: ${ACTIONS.checkout}
+      - uses: ${ACTIONS.claudeCode}
         with:
           anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
@@ -1192,7 +1226,7 @@ jobs:
       {
         path: '',
         language: 'yaml',
-        content: `- uses: sholtomaud/repo-sre-dashboard@v1
+        content: `- uses: ${ACTIONS.dashboard}
   with:
     agent-cost-per-issue: '1.50'   # API spend ÷ issues agents resolved
     human-hourly-rate: '95'
