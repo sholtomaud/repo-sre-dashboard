@@ -1,4 +1,4 @@
-import{r as e,u as t}from"./index-DZhrLUFG.js";import{s as n}from"./metrics-DrWwOoaN.js";import{t as r}from"./dial-DWpH6hqP.js";import{a as i,d as a,n as o,u as s}from"./report-IYZEhpFM.js";var c=`<main class="page">
+import{r as e,u as t}from"./index-lXWZ3GtR.js";import{s as n}from"./metrics-DrWwOoaN.js";import{t as r}from"./dial-DWpH6hqP.js";import{a as i,d as a,n as o,u as s}from"./report-IYZEhpFM.js";var c=`<main class="page">
   <header class="hero">
     <p class="eyebrow">Best-practice audit · <span data-repo></span></p>
     <h1>Audit</h1>

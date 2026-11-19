@@ -1,4 +1,4 @@
-import{i as e,u as t}from"./index-DZhrLUFG.js";import{n,o as r,t as i}from"./format-DYYxeEu5.js";import{r as a}from"./svg-BJXHUiNH.js";var o=`<article class="card outlook" data-outlook>
+import{i as e,u as t}from"./index-lXWZ3GtR.js";import{n,o as r,t as i}from"./format-DYYxeEu5.js";import{r as a}from"./svg-BJXHUiNH.js";var o=`<article class="card outlook" data-outlook>
   <header class="outlook-head">
     <div>
       <h2>Project outlook</h2>
@@ -172,6 +172,11 @@ import{i as e,u as t}from"./index-DZhrLUFG.js";import{n,o as r,t as i}from"./for
   margin: 0;
 }
 :host .outlook-card {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  align-items: start;
   padding: 0.875rem 1rem;
   border: 1px solid var(--border);
   border-radius: 12px;
