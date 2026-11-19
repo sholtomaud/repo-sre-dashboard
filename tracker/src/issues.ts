@@ -393,16 +393,20 @@ export const CSV_FIELDS = [
 const day = (timestamp: string) => timestamp.slice(0, 10);
 const MS_PER_DAY = 86_400_000;
 
-/** Running totals for each UTC day from the first issue to `today`. */
+/**
+ * Running totals for each UTC day from the day before the first issue (the
+ * zero baseline) to `today`, so rates and ratios work on a repository's first
+ * day of issues too.
+ */
 export function dailyRows(
   issues: Issue[],
   today: string
 ): Record<(typeof CSV_FIELDS)[number], string | number>[] {
-  const start = issues.length
-    ? issues.map((i) => day(i.createdAt)).sort()[0]
-    : today;
+  const firstDay = issues.length
+    ? Date.parse(issues.map((i) => day(i.createdAt)).sort()[0]) - MS_PER_DAY
+    : Date.parse(today);
   const rows = [];
-  for (let t = Date.parse(start); t <= Date.parse(today); t += MS_PER_DAY) {
+  for (let t = firstDay; t <= Date.parse(today); t += MS_PER_DAY) {
     const date = new Date(t).toISOString().slice(0, 10);
     const created = issues.filter((i) => day(i.createdAt) <= date);
     const closed = created.filter((i) => i.closedAt && day(i.closedAt) <= date);

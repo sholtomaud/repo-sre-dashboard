@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatRate,
   formatSigned,
+  formatSpan,
 } from '../../lib/format.ts';
 import type { Snapshot } from '../../services/metrics.ts';
 import {
@@ -209,9 +210,7 @@ export class FlightDeckComponent extends BaseComponent {
     );
     this.querySelector('[data-open]')!.textContent = formatCount(latest.open);
     this.querySelector('[data-open-delta]')!.textContent =
-      v.days > 0
-        ? `${formatSigned(openDelta)} in ${Math.round(v.days)} days`
-        : '';
+      v.days > 0 ? `${formatSigned(openDelta)} in ${formatSpan(v.days)}` : '';
   }
 
   private drawRatio(data: DeckData) {
@@ -232,7 +231,7 @@ export class FlightDeckComponent extends BaseComponent {
     if (velocity.days > 0) {
       set(
         '[data-ratio-window]',
-        `Issues opened for each one closed, last ${Math.round(velocity.days)} days.`
+        `Issues opened for each one closed, last ${formatSpan(velocity.days)}.`
       );
     }
     const chip = this.querySelector<HTMLElement>('[data-ratio-chip]')!;
@@ -274,9 +273,9 @@ export class FlightDeckComponent extends BaseComponent {
     set(
       '[data-ratio-text]',
       ratio !== null && ratio > 1.1 && doomLoop.doublingDays !== null
-        ? `At this rate the open backlog of ${formatCount(latest.open)} doubles in ${Math.round(doomLoop.doublingDays)} days.`
+        ? `At this rate the open backlog of ${formatCount(latest.open)} doubles in ${formatSpan(doomLoop.doublingDays)}.`
         : ratio !== null && ratio < 0.9 && doomLoop.clearDays !== null
-          ? `At this rate the backlog is cleared in ${Math.round(doomLoop.clearDays)} days.`
+          ? `At this rate the backlog is cleared in ${formatSpan(doomLoop.clearDays)}.`
           : ''
     );
     this.querySelector('[data-ratio-history]')!.replaceChildren(
