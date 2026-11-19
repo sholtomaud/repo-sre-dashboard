@@ -1,0 +1,94 @@
+<section class="annunciator" aria-labelledby="annunciator-title">
+  <h3 id="annunciator-title" class="sr-only">Annunciator panel</h3>
+  <a class="master" href="#overview" data-master data-state="off"
+    >All clear</a
+  >
+  <ul class="tiles" data-tiles></ul>
+  <p class="deck-note">
+    Dark-panel rule: a tile lights only while something is abnormal, amber
+    for caution and red for warning. Nothing lit, nothing to do.
+  </p>
+</section>
+
+<div class="deck-row">
+  <a class="card instrument velocity" href="#outlook" data-kpi="Resolution velocity">
+    <header class="instrument-head">
+      <h3>Resolution velocity</h3>
+      <p>
+        Issues resolved a day by agents and people, against the
+        <span class="arrivals-word">blue mark</span>: issues arriving a day.
+      </p>
+    </header>
+    <div class="dial-wrap" data-velocity-dial>
+      <div class="dial-figure">
+        <p class="readout tabular" data-velocity>—</p>
+        <p class="readout-unit">resolved a day</p>
+      </div>
+    </div>
+    <p class="verdict" data-velocity-verdict></p>
+    <ul class="legend" data-velocity-legend></ul>
+    <p class="odometer" data-kpi="Open issues">
+      <span class="odometer-label">Open</span>
+      <span class="kpi-value tabular" data-open>—</span>
+      <span class="odometer-delta" data-open-delta></span>
+    </p>
+  </a>
+
+  <a class="card instrument ratio" href="#outlook" data-kpi="Opened per issue closed">
+    <header class="instrument-head">
+      <h3>Opened per issue closed</h3>
+      <p data-ratio-window>Issues opened for each one closed.</p>
+    </header>
+    <p class="ratio-figure">
+      <span class="ratio-value tabular" data-ratio>—</span><span
+        class="ratio-times"
+        >×</span
+      >
+    </p>
+    <p class="chip" data-ratio-chip></p>
+    <div class="ratio-scale" data-ratio-scale aria-hidden="true">
+      <div class="ratio-zones">
+        <span data-zone="burning"></span>
+        <span data-zone="steady"></span>
+        <span data-zone="behind"></span>
+        <span data-zone="doom"></span>
+      </div>
+      <span class="ratio-tag" data-ratio-tag hidden></span>
+      <ol class="ratio-ticks" data-ratio-ticks></ol>
+      <p class="ratio-captions">
+        <span>Burning down</span><span>Break-even</span><span>Doom loop</span>
+      </p>
+    </div>
+    <p class="ratio-text" data-ratio-text></p>
+    <div class="ratio-history" data-ratio-history></div>
+  </a>
+</div>
+
+<div class="dials" data-dials></div>
+
+<article class="card crew" data-kpi="Resolved by AI agents">
+  <header class="instrument-head crew-head">
+    <h3>Crew split</h3>
+    <ul class="legend">
+      <li><span class="glyph agent" aria-hidden="true"></span>Agents</li>
+      <li><span class="glyph human" aria-hidden="true"></span>People</li>
+    </ul>
+  </header>
+  <div class="crew-rows" data-crew-rows></div>
+  <dl class="crew-stats" data-crew-stats></dl>
+  <p class="deck-note" data-crew-note></p>
+</article>
+
+<p class="sign-key" data-sign-key>
+  <strong>Sign key</strong>
+  <span><span class="glyph human" aria-hidden="true"></span>Person</span>
+  <span><span class="glyph agent" aria-hidden="true"></span>Agent</span>
+  <span><span class="tone-icon" data-tone="good" aria-hidden="true">✓</span>Normal</span>
+  <span><span class="tone-icon" data-tone="warn" aria-hidden="true">!</span>Caution</span>
+  <span><span class="tone-icon" data-tone="bad" aria-hidden="true">✕</span>Warning</span>
+  <span><span class="target-mark" aria-hidden="true">▼</span>Target</span>
+  <span class="sign-rule"
+    >Dials only for bounded values with known limits; the backlog ratio on a
+    log scale centred on break-even; DORA on bullet bars, worse to the left.</span
+  >
+</p>

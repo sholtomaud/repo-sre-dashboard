@@ -59,40 +59,6 @@
   color: var(--ink-muted);
   font-size: 0.75rem;
 }
-:host .dial {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-:host .dial-track,
-:host .dial-band {
-  fill: none;
-  stroke-width: 10;
-}
-:host .dial-track {
-  stroke: var(--surface-2);
-}
-:host .dial-tick {
-  stroke: var(--ink-muted);
-  stroke-width: 1.5;
-}
-:host .dial-tick-label {
-  fill: var(--ink-muted);
-  font-size: 10px;
-  text-anchor: middle;
-}
-:host .dial-needle {
-  stroke: var(--ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-:host .dial-hub {
-  fill: var(--ink);
-}
-:host .dial-target {
-  fill: var(--series-5);
-}
 :host .score-text {
   flex: 1 1 280px;
   display: grid;
