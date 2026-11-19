@@ -118,6 +118,7 @@ export class DashboardPageComponent extends BaseComponent {
       pulls,
       responses,
       closures,
+      cost: this.config?.cost ?? null,
     });
     this.renderFindings(
       findings({ classes, ci, flowRatio: snapshot.doomLoop.ratio, audit })

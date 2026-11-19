@@ -1,7 +1,12 @@
 import { BaseComponent } from '../../core/base-component.ts';
 import type { Budget, IssueClass, Outlook } from '../../services/outlook.ts';
 import { CLASSES } from '../../services/outlook.ts';
-import { formatCount, formatDate, formatRate } from '../../lib/format.ts';
+import {
+  formatCount,
+  formatDate,
+  formatMoney,
+  formatRate,
+} from '../../lib/format.ts';
 import { svg } from '../../lib/svg.ts';
 import template from './outlook-panel.html?raw';
 import style from './outlook-panel.css?raw';
@@ -183,7 +188,7 @@ export class OutlookPanelComponent extends BaseComponent {
     set(
       '[data-cost]',
       cost
-        ? `Cost: about ${money(cost.monthlySpendNow, cost.currency)} a month at today's resolution rate; keeping pace with new issues would take ${money(cost.monthlyToKeepPace, cost.currency)} a month.` +
+        ? `Cost: about ${formatMoney(cost.monthlySpendNow, cost.currency)} a month at today's resolution rate; keeping pace with new issues would take ${formatMoney(cost.monthlyToKeepPace, cost.currency)} a month.` +
             budgetText(outlook, 'human', horizon, date) +
             budgetText(outlook, 'agentic', horizon, date)
         : 'Cost: set the agent-cost-per-issue and human-hourly-rate inputs to see what resolving issues costs, and when it would outrun a budget.'
@@ -257,18 +262,6 @@ function budgetText(
   return doom.day === null
     ? ` ${whose} budget holds to ${horizon} (${percent(doom.byHorizon)} chance of exceeding it).`
     : ` Keeping pace is likely to exceed ${whose.toLowerCase()} budget by ${date(doom.day)}.`;
-}
-
-function money(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${formatCount(value)} ${currency}`;
-  }
 }
 
 if (!customElements.get(OutlookPanelComponent.tagName)) {

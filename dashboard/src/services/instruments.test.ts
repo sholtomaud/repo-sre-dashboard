@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   annunciators,
   doraScale,
+  financialDoomLevel,
+  financialDoomLoop,
+  financialRatioScale,
   niceCeiling,
   ratioScale,
   type AnnunciatorInputs,
@@ -153,4 +156,114 @@ test('DORA scales place a value among its bands, worse to the left', () => {
   );
   assert.equal(doraScale('failureRate', 0.045).position! > 0.75, true);
   assert.equal(doraScale('failureRate', 0.5).position, 0);
+});
+
+test('financialDoomLoop measures keep-pace cost against each budget and tracks backlog liability', () => {
+  const cost = {
+    currency: 'USD',
+    agentPerIssue: 2,
+    humanHourlyRate: 100,
+    humanHoursPerIssue: 2,
+    monthlyHumanBudget: 5000,
+    monthlyAgenticBudget: 50,
+  };
+
+  // Without cost config or without any monthly budget, returns null.
+  assert.equal(
+    financialDoomLoop(null, { agent: 1, human: 1, arrivals: 4, days: 7 }, 10),
+    null
+  );
+  assert.equal(
+    financialDoomLoop(
+      { ...cost, monthlyHumanBudget: null, monthlyAgenticBudget: null },
+      { agent: 1, human: 1, arrivals: 4, days: 7 },
+      10
+    ),
+    null
+  );
+
+  // Within both budgets: 1 arrival/day split 50/50 -> human $3000 ($5000 cap = 0.6x), agentic $30 ($50 cap = 0.6x).
+  const ok = financialDoomLoop(
+    cost,
+    { agent: 1, human: 1, arrivals: 1, days: 7 },
+    10
+  )!;
+  assert.equal(ok.level, 'within');
+  assert.equal(ok.driver, 'human');
+  assert.ok(Math.abs(ok.ratio! - 0.6) < 1e-9);
+  assert.equal(ok.dailyLiabilityGrowth, 0);
+  // Blended per-issue cost = 0.5 * 2 + 0.5 * 200 = $101; 10 open = $1,010.
+  assert.equal(ok.backlogLiability, 1010);
+
+  // Agentic budget blowout (3x of $50 = $150/mo) is NOT masked by a huge human budget (0.3x of $5000).
+  const agentBlowout = financialDoomLoop(
+    cost,
+    { agent: 2, human: 0.2, arrivals: 2.75, days: 7 },
+    20
+  )!;
+  assert.equal(agentBlowout.driver, 'agentic');
+  assert.equal(agentBlowout.level, 'doom');
+  assert.ok(agentBlowout.ratio! > 2);
+  assert.ok(agentBlowout.human.ratio! < 1);
+  assert.ok(agentBlowout.dailyLiabilityGrowth > 0);
+
+  // Zero-day window yields unknown level with null ratio.
+  const noActivity = financialDoomLoop(
+    cost,
+    { agent: 0, human: 0, arrivals: 0, days: 0 },
+    5
+  )!;
+  assert.equal(noActivity.ratio, null);
+  assert.equal(noActivity.level, 'unknown');
+
+  // Thresholds and log scale.
+  assert.equal(financialDoomLevel(0.5), 'within');
+  assert.equal(financialDoomLevel(0.85), 'tight');
+  assert.equal(financialDoomLevel(1.5), 'over');
+  assert.equal(financialDoomLevel(2.5), 'doom');
+  assert.equal(financialDoomLevel(null), 'unknown');
+  assert.equal(financialRatioScale(1).position, 0.5);
+  assert.equal(financialRatioScale(2).position, 0.5 + 1 / 6);
+  assert.equal(financialRatioScale(8).position, 1);
+  assert.equal(financialRatioScale(20).clipped, true);
+});
+
+test('annunciators include a budget tile when financial budgets are configured', () => {
+  const within = annunciators({
+    ...calm,
+    financial: { ratio: 0.5, driver: 'human' },
+  });
+  const okTile = within.find((t) => t.id === 'budget')!;
+  assert.equal(okTile.state, 'off');
+  assert.equal(okTile.detail, 'Within budget (0.5×)');
+
+  const tight = annunciators({
+    ...calm,
+    financial: { ratio: 0.85, driver: 'human' },
+  });
+  assert.equal(tight.find((t) => t.id === 'budget')!.state, 'caution');
+
+  const over = annunciators({
+    ...calm,
+    financial: { ratio: 1.4, driver: 'human' },
+  });
+  const overTile = over.find((t) => t.id === 'budget')!;
+  assert.equal(overTile.state, 'caution');
+  assert.equal(overTile.detail, "1.4× people's budget");
+
+  const doom = annunciators({
+    ...calm,
+    financial: { ratio: 3.0, driver: 'agentic' },
+  });
+  const doomTile = doom.find((t) => t.id === 'budget')!;
+  assert.equal(doomTile.state, 'warning');
+  assert.equal(doomTile.detail, "3.0× agents' budget");
+
+  const inf = annunciators({
+    ...calm,
+    financial: { ratio: Infinity, driver: 'agentic' },
+  });
+  const infTile = inf.find((t) => t.id === 'budget')!;
+  assert.equal(infTile.state, 'warning');
+  assert.equal(infTile.detail, "Exceeds agents' budget");
 });

@@ -1,4 +1,4 @@
-import{u as e}from"./index-UlpsK3dC.js";import{n as t,t as n}from"./metrics-DrWwOoaN.js";import{t as r}from"./format-CJZsMI5O.js";var i=`<article class="card evidence">
+import{d as e}from"./index-CgDyoNcz.js";import{n as t,t as n}from"./metrics-DrWwOoaN.js";import{t as r}from"./format-0i7eZnoE.js";var i=`<article class="card evidence">
   <header class="evidence-head">
     <h2>How issues were closed</h2>
     <p>

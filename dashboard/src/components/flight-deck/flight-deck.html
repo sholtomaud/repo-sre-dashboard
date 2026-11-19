@@ -1,17 +1,19 @@
 <section class="annunciator" aria-labelledby="annunciator-title">
   <h3 id="annunciator-title" class="sr-only">Annunciator panel</h3>
-  <a class="master" href="#overview" data-master data-state="off"
-    >All clear</a
-  >
+  <a class="master" href="#overview" data-master data-state="off">All clear</a>
   <ul class="tiles" data-tiles></ul>
   <p class="deck-note">
-    Dark-panel rule: a tile lights only while something is abnormal, amber
-    for caution and red for warning. Nothing lit, nothing to do.
+    Dark-panel rule: a tile lights only while something is abnormal, amber for
+    caution and red for warning. Nothing lit, nothing to do.
   </p>
 </section>
 
 <div class="deck-row">
-  <a class="card instrument velocity" href="#outlook" data-kpi="Resolution velocity">
+  <a
+    class="card instrument velocity"
+    href="#outlook"
+    data-kpi="Resolution velocity"
+  >
     <header class="instrument-head">
       <h3>Resolution velocity</h3>
       <p>
@@ -34,16 +36,18 @@
     </p>
   </a>
 
-  <a class="card instrument ratio" href="#outlook" data-kpi="Opened per issue closed">
+  <a
+    class="card instrument ratio"
+    href="#outlook"
+    data-kpi="Opened per issue closed"
+  >
     <header class="instrument-head">
       <h3>Opened per issue closed</h3>
       <p data-ratio-window>Issues opened for each one closed.</p>
     </header>
     <p class="ratio-figure">
-      <span class="ratio-value tabular" data-ratio>—</span><span
-        class="ratio-times"
-        >×</span
-      >
+      <span class="ratio-value tabular" data-ratio>—</span
+      ><span class="ratio-times">×</span>
     </p>
     <p class="chip" data-ratio-chip></p>
     <div class="ratio-scale" data-ratio-scale aria-hidden="true">
@@ -61,6 +65,38 @@
     </div>
     <p class="ratio-text" data-ratio-text></p>
     <div class="ratio-history" data-ratio-history></div>
+  </a>
+
+  <a
+    class="card instrument financial"
+    href="#outlook"
+    data-kpi="Financial doom loop"
+    hidden
+  >
+    <header class="instrument-head">
+      <h3>Keep-pace cost vs budget</h3>
+      <p data-fin-window>Keep-pace cost per budget dollar.</p>
+    </header>
+    <p class="ratio-figure">
+      <span class="ratio-value tabular" data-fin-ratio>—</span
+      ><span class="ratio-times">×</span>
+    </p>
+    <p class="chip" data-fin-chip></p>
+    <div class="ratio-scale" data-fin-scale aria-hidden="true">
+      <div class="ratio-zones" data-fin-zones>
+        <span data-zone="burning"></span>
+        <span data-zone="steady"></span>
+        <span data-zone="behind"></span>
+        <span data-zone="doom"></span>
+      </div>
+      <span class="ratio-tag" data-fin-tag hidden></span>
+      <ol class="ratio-ticks" data-fin-ticks></ol>
+      <p class="ratio-captions">
+        <span>Under budget</span><span>Budget cap</span><span>Doom loop</span>
+      </p>
+    </div>
+    <ul class="fin-pools" data-fin-pools></ul>
+    <p class="ratio-text" data-fin-text></p>
   </a>
 </div>
 
@@ -83,12 +119,21 @@
   <strong>Sign key</strong>
   <span><span class="glyph human" aria-hidden="true"></span>Person</span>
   <span><span class="glyph agent" aria-hidden="true"></span>Agent</span>
-  <span><span class="tone-icon" data-tone="good" aria-hidden="true">✓</span>Normal</span>
-  <span><span class="tone-icon" data-tone="warn" aria-hidden="true">!</span>Caution</span>
-  <span><span class="tone-icon" data-tone="bad" aria-hidden="true">✕</span>Warning</span>
+  <span
+    ><span class="tone-icon" data-tone="good" aria-hidden="true">✓</span
+    >Normal</span
+  >
+  <span
+    ><span class="tone-icon" data-tone="warn" aria-hidden="true">!</span
+    >Caution</span
+  >
+  <span
+    ><span class="tone-icon" data-tone="bad" aria-hidden="true">✕</span
+    >Warning</span
+  >
   <span><span class="target-mark" aria-hidden="true">▼</span>Target</span>
   <span class="sign-rule"
-    >Dials only for bounded values with known limits; the backlog ratio on a
-    log scale centred on break-even; DORA on bullet bars, worse to the left.</span
+    >Dials only for bounded values with known limits; the backlog ratio on a log
+    scale centred on break-even; DORA on bullet bars, worse to the left.</span
   >
 </p>

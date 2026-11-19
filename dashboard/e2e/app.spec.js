@@ -1008,3 +1008,65 @@ test('flight deck counts human-directed agent PRs in agent merge rate and time t
   await expect(stats).toContainText('80.0% / —');
   await expect(stats).toContainText('3.0 h / —');
 });
+
+test('the flight deck shows a financial doom loop when keep-pace cost exceeds budget', async ({
+  page,
+}) => {
+  // Without budgets configured, the card stays hidden and no budget tile appears.
+  await withFixture(page, CSV, 200, STATUS);
+  await page.goto('/');
+  await expect(page.locator('[data-kpi="Financial doom loop"]')).toBeHidden();
+  await expect(page.locator('[data-annunciator="budget"]')).toHaveCount(0);
+
+  // An agentic budget blowout (keep-pace agentic spend > 2x of $50) lights up
+  // Financial doom loop even when the human budget ($5,000) is comfortably safe.
+  const blowoutCsv = `date,open,agent_closed,human_closed
+2026-11-01,20,0,0
+2026-11-08,24,14,2
+`;
+  const blowoutStatus = { ...STATUS, updated_at: '2026-11-08T23:59:59Z' };
+  await withFixture(page, blowoutCsv, 200, blowoutStatus);
+  await page.route('**/data/config.json', (route) =>
+    route.fulfill({
+      json: {
+        repository: 'owner/project',
+        cost: {
+          currency: 'USD',
+          agent_per_issue: 2,
+          human_hourly_rate: 100,
+          human_hours_per_issue: 2,
+          monthly_human_budget: 5000,
+          monthly_agentic_budget: 50,
+        },
+      },
+    })
+  );
+  await page.goto('/');
+
+  const card = page.locator('[data-kpi="Financial doom loop"]');
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-fin-chip]')).toContainText(
+    'Financial doom loop'
+  );
+  await expect(card.locator('[data-fin-tag]')).toBeVisible();
+  await expect(card.locator('[data-fin-pools]')).toContainText('People');
+  await expect(card.locator('[data-fin-pools]')).toContainText('Agents');
+  await expect(card.locator('[data-fin-text]')).toContainText(
+    'Open backlog liability'
+  );
+
+  const budgetTile = page.locator('[data-annunciator="budget"]');
+  await expect(budgetTile).toHaveAttribute('data-state', 'warning');
+  await expect(budgetTile).toContainText("agents' budget");
+
+  // Within both budgets: calm chip and dark annunciator tile.
+  const calmCsv = `date,open,agent_closed,human_closed
+2026-11-01,10,0,0
+2026-11-08,4,3,4
+`;
+  await withFixture(page, calmCsv, 200, blowoutStatus);
+  await page.goto('/');
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-fin-chip]')).toContainText('Within budget');
+  await expect(budgetTile).toHaveAttribute('data-state', 'off');
+});
