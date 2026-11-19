@@ -21,7 +21,12 @@ import {
   type Issue,
 } from '../src/issues.ts';
 import { auditScore, runAudit } from '../src/audit.ts';
-import { ciHealth, readWorkflow, type Profile } from '../src/repo.ts';
+import {
+  ciHealth,
+  hasDependencyCooldown,
+  readWorkflow,
+  type Profile,
+} from '../src/repo.ts';
 import {
   deliveryMetrics,
   frequencyBand,
@@ -276,6 +281,7 @@ const PROFILE: Profile = {
     socket: null,
     agentInstructions: null,
   },
+  dependencyCooldown: null,
   lockfiles: ['package-lock.json'],
   ecosystems: [{ name: 'npm', directory: '/' }],
   issueTemplates: ['bug_report.md', 'config.yml'],
@@ -387,6 +393,7 @@ jobs:
       dependencyUpdates: '.github/dependabot.yml',
       socket: 'socket.yml',
     },
+    dependencyCooldown: true,
     branch: { protected: true, requiresReview: true, requiresChecks: true },
   });
   for (const id of [
@@ -1064,5 +1071,149 @@ test("the audit's own fixes pin every action to a commit SHA and pass pinned-act
   assert.equal(
     audit({ workflows: generated })['pinned-actions'].status,
     'pass'
+  );
+});
+
+test('dependency cooldown is detected in Dependabot and Renovate configs', () => {
+  assert.equal(
+    hasDependencyCooldown(
+      '.github/dependabot.yml',
+      `version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    cooldown:
+      default-days: 7
+`
+    ),
+    true
+  );
+
+  // Missing cooldown on one ecosystem fails the check.
+  assert.equal(
+    hasDependencyCooldown(
+      '.github/dependabot.yml',
+      `version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    cooldown:
+      default-days: 7
+  - package-ecosystem: npm
+    directory: /dashboard
+`
+    ),
+    false
+  );
+
+  // Zero days or absent cooldown fails.
+  assert.equal(
+    hasDependencyCooldown(
+      '.github/dependabot.yml',
+      `version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    cooldown:
+      default-days: 0
+`
+    ),
+    false
+  );
+
+  // Semver-specific cooldown days also count.
+  assert.equal(
+    hasDependencyCooldown(
+      '.github/dependabot.yml',
+      `version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    cooldown:
+      semver-patch-days: 7
+      semver-minor-days: 7
+`
+    ),
+    true
+  );
+
+  // Renovate uses minimumReleaseAge.
+  assert.equal(
+    hasDependencyCooldown('renovate.json', '{"minimumReleaseAge": "7 days"}'),
+    true
+  );
+  assert.equal(
+    hasDependencyCooldown('renovate.json', '{"minimumReleaseAge": "0 days"}'),
+    false
+  );
+  assert.equal(hasDependencyCooldown('renovate.json', '{}'), false);
+});
+
+test('auto-patch requires a release cooldown and dependency-updates recommends one', () => {
+  // The generated Dependabot config includes a cooldown and passes the detector.
+  const dependabotFix = audit({})['dependency-updates'].fixes[0].content;
+  assert.match(dependabotFix, /cooldown:\n\s+default-days: 7/);
+  assert.equal(
+    hasDependencyCooldown('.github/dependabot.yml', dependabotFix),
+    true
+  );
+
+  const autoMergeWorkflow = readWorkflow(
+    '.github/workflows/dependabot-auto-merge.yml',
+    `name: Dependabot auto-merge
+on: pull_request
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+`
+  );
+
+  // No auto-merge workflow -> improve.
+  const none = audit({})['auto-patch'];
+  assert.equal(none.status, 'improve');
+  assert.match(none.fixes[0].content, /fetch-metadata/);
+
+  // Auto-merge without a cooldown -> improve, explaining why and offering the cooldown fix.
+  const noCooldown = audit({
+    workflows: [autoMergeWorkflow],
+    keyFiles: {
+      ...PROFILE.keyFiles,
+      dependencyUpdates: '.github/dependabot.yml',
+    },
+    dependencyCooldown: false,
+  })['auto-patch'];
+  assert.equal(noCooldown.status, 'improve');
+  assert.match(noCooldown.evidence, /cooldown/i);
+  assert.match(noCooldown.fixes[0].content, /cooldown:/);
+
+  // Auto-merge with a cooldown -> pass, no fixes.
+  const withCooldown = audit({
+    workflows: [autoMergeWorkflow],
+    keyFiles: {
+      ...PROFILE.keyFiles,
+      dependencyUpdates: '.github/dependabot.yml',
+    },
+    dependencyCooldown: true,
+  })['auto-patch'];
+  assert.equal(withCooldown.status, 'pass');
+  assert.deepEqual(withCooldown.fixes, []);
+
+  // This repository's own dependabot.yml has a cooldown on every ecosystem.
+  const ownDependabot = fs.readFileSync(
+    path.join(import.meta.dirname, '../../.github/dependabot.yml'),
+    'utf8'
+  );
+  assert.equal(
+    hasDependencyCooldown('.github/dependabot.yml', ownDependabot),
+    true
   );
 });

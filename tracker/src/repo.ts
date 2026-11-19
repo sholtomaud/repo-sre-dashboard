@@ -179,6 +179,43 @@ export function readWorkflow(path: string, text: string): WorkflowFile {
   };
 }
 
+function hasDependabotCooldownBlock(block: string): boolean {
+  const lines = block.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const match = /^(\s*)cooldown:\s*(?:#.*)?$/.exec(lines[i]);
+    if (!match) continue;
+    const indent = match[1].length;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      if (/^\s*(?:#.*)?$/.test(line)) continue;
+      const lineIndent = /^(\s*)/.exec(line)![1].length;
+      if (lineIndent <= indent) break;
+      if (
+        /^\s*(?:default|semver-patch|semver-minor)-days:\s*[1-9]\d*(?:\s*#.*)?$/.test(
+          line
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a Dependabot or Renovate config holds back newly published versions
+ * (a cooldown / minimumReleaseAge) before proposing version updates.
+ */
+export function hasDependencyCooldown(path: string, text: string): boolean {
+  if (/renovate/i.test(path)) {
+    const uncommented = text.replace(/^\s*\/\/.*$/gm, '');
+    return /"?minimumReleaseAge"?\s*:\s*['"]?[1-9]/i.test(uncommented);
+  }
+  const entries = text.split(/^\s*-\s+package-ecosystem:/m);
+  if (entries.length <= 1) return hasDependabotCooldownBlock(text);
+  return entries.slice(1).every(hasDependabotCooldownBlock);
+}
+
 export interface CiRun {
   workflow: string;
   path: string;
@@ -257,6 +294,8 @@ export interface Profile {
   /** Files truncated: the repository has more than the API lists at once. */
   truncated: boolean;
   keyFiles: Record<KeyFile, string | null>;
+  /** Whether the dependency update config sets a release cooldown (null if absent or unreadable). */
+  dependencyCooldown: boolean | null;
   lockfiles: string[];
   /** Package ecosystems found, one entry per folder with a manifest. */
   ecosystems: { name: string; directory: string }[];
@@ -451,6 +490,26 @@ export async function readProfile(
     )
   ).filter((d): d is { path: string; text: string } => d !== null);
 
+  const dependencyCooldown = keyFiles.dependencyUpdates
+    ? await guarded(
+        denied,
+        'dependency updates config',
+        'contents: read',
+        null,
+        async () => {
+          const file = await client.rest<{ content: string }>(
+            `${base}/contents/${keyFiles.dependencyUpdates}?ref=${encodeURIComponent(branch)}`
+          );
+          return file
+            ? hasDependencyCooldown(
+                keyFiles.dependencyUpdates!,
+                Buffer.from(file.content, 'base64').toString('utf8')
+              )
+            : null;
+        }
+      )
+    : null;
+
   const labels = await guarded(denied, 'labels', 'issues: read', [], async () =>
     (await client.restAll<{ name: string }>(`${base}/labels`, 300)).map(
       (l) => l.name
@@ -558,6 +617,7 @@ export async function readProfile(
     testFiles: own.filter((p) => TEST_PATH.test(p)).length,
     truncated: tree?.truncated ?? false,
     keyFiles,
+    dependencyCooldown,
     lockfiles: own.filter((p) => LOCKFILE.test(p)),
     // Every folder with a manifest, shallowest first, up to 10 per
     // ecosystem: Dependabot needs an entry for each.
