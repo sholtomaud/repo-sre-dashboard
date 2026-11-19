@@ -1,4 +1,4 @@
-import{u as e}from"./index-DZhrLUFG.js";import{r as t}from"./health-RCxkCncK.js";import{a as n,t as r}from"./format-DYYxeEu5.js";import{r as i}from"./instruments-CT3J5AsX.js";var a=`<article class="card delivery">
+import{u as e}from"./index-lXWZ3GtR.js";import{r as t}from"./health-RCxkCncK.js";import{a as n,t as r}from"./format-DYYxeEu5.js";import{r as i}from"./instruments-CT3J5AsX.js";var a=`<article class="card delivery">
   <header class="panel-head">
     <h2>Delivery</h2>
     <p>
@@ -25,8 +25,11 @@ import{u as e}from"./index-DZhrLUFG.js";import{r as t}from"./health-RCxkCncK.js"
 }
 :host .metric {
   display: grid;
-  gap: 0.375rem;
-  align-content: start;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: 0.375rem;
+  align-content: stretch;
+  align-items: start;
   padding: 1rem;
   border-radius: 12px;
   background: var(--surface-2);

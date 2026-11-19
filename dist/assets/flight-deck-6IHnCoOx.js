@@ -1,4 +1,4 @@
-import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,o as a,s as o,t as s}from"./format-DYYxeEu5.js";import{n as c,r as l}from"./health-RCxkCncK.js";import{d as u,n as d,t as f}from"./report-IYZEhpFM.js";import{a as p,i as m,n as h,t as g}from"./instruments-CT3J5AsX.js";var _=`<section class="annunciator" aria-labelledby="annunciator-title">
+import{u as e}from"./index-lXWZ3GtR.js";import{n as t,t as n}from"./dial-DWpH6hqP.js";import{r}from"./svg-BJXHUiNH.js";import{a as i,o as a,s as o,t as s}from"./format-DYYxeEu5.js";import{n as c,r as l}from"./health-RCxkCncK.js";import{d as u,n as d,t as f}from"./report-IYZEhpFM.js";import{a as p,i as m,n as h,t as g}from"./instruments-CT3J5AsX.js";var _=`<section class="annunciator" aria-labelledby="annunciator-title">
   <h3 id="annunciator-title" class="sr-only">Annunciator panel</h3>
   <a class="master" href="#overview" data-master data-state="off"
     >All clear</a
@@ -137,13 +137,17 @@ import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hq
   background: var(--warning);
   border-color: var(--warning);
   color: #0b0b0b;
-  box-shadow: 0 0 0 3px #121211, 0 0 0 5px var(--warning);
+  box-shadow:
+    0 0 0 3px #121211,
+    0 0 0 5px var(--warning);
 }
 :host .master[data-state='warning'] {
   background: var(--critical);
   border-color: var(--critical);
   color: #fff;
-  box-shadow: 0 0 0 3px #121211, 0 0 0 5px var(--critical);
+  box-shadow:
+    0 0 0 3px #121211,
+    0 0 0 5px var(--critical);
 }
 :host .tiles {
   display: grid;
@@ -321,8 +325,10 @@ import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hq
 }
 :host .glyph.agent {
   background: var(--agents);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 3h10l5 9-5 9H7l-5-9z' fill='none' stroke='black' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 3h10l5 9-5 9H7l-5-9z' fill='none' stroke='black' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 3h10l5 9-5 9H7l-5-9z' fill='none' stroke='black' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 3h10l5 9-5 9H7l-5-9z' fill='none' stroke='black' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 :host .glyph.arrivals {
   width: 0.25rem;
@@ -510,14 +516,32 @@ import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hq
   vector-effect: non-scaling-stroke;
 }
 
-/* Dials for bounded figures. */
+/* Dials for bounded figures. Subgrid keeps heads, dials, verdicts and notes
+   on the same horizontal lines across each row. */
 :host .dials {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
 }
+:host .dial-card {
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0.5rem;
+  align-content: stretch;
+  align-items: start;
+}
+:host .dial-card .instrument-head {
+  grid-row: 1;
+}
 :host .dial-card .dial-wrap {
+  grid-row: 2;
   width: min(180px, 100%);
+}
+:host .dial-card .verdict {
+  grid-row: 3;
+}
+:host .dial-card .deck-note {
+  grid-row: 4;
 }
 :host .dial-card .dial-tick-label {
   font-size: 12px;
@@ -577,6 +601,11 @@ import{u as e}from"./index-DZhrLUFG.js";import{n as t,t as n}from"./dial-DWpH6hq
   margin: 0;
 }
 :host .crew-stats div {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  row-gap: 0.25rem;
+  align-items: start;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   background: var(--surface-2);

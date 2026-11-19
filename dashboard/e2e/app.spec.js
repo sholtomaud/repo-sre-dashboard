@@ -746,3 +746,147 @@ test('fits a phone screen without sideways scrolling', async ({ page }) => {
     ).toBeLessThanOrEqual(390);
   }
 });
+
+test('dial and metric cards align across each row', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const csv = classCsv(14, {
+    security: [0, 1, 0, 1],
+    bug: [0, 2, 1, 1],
+    other: [0, 1, 0, 1],
+  });
+  const fullReport = {
+    ...REPORT,
+    pulls: {
+      window_days: 30,
+      total: 10,
+      by_origin: {
+        agent: {
+          opened: 4,
+          merged: 2,
+          closed_unmerged: 1,
+          still_open: 1,
+          merge_rate: 0.667,
+          median_hours_to_merge: 5,
+        },
+        assisted: {
+          opened: 2,
+          merged: 2,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: 1,
+          median_hours_to_merge: 20,
+        },
+        human: {
+          opened: 4,
+          merged: 4,
+          closed_unmerged: 0,
+          still_open: 0,
+          merge_rate: 1,
+          median_hours_to_merge: 30,
+        },
+      },
+      agents: { Copilot: 4, Claude: 2 },
+    },
+  };
+  await withFixture(page, csv, 200, fullReport);
+  await page.goto('/');
+  await expect(page.locator('[data-dials] .dial-card')).toHaveCount(5);
+  await expect(page.locator('outlook-panel [data-body]')).toBeVisible({
+    timeout: 20000,
+  });
+
+  const rowTops = (containerSelector, cardSelector, partSelectors) =>
+    page.evaluate(
+      ({ containerSelector, cardSelector, partSelectors }) => {
+        const root = document.querySelector(containerSelector);
+        const cards = [...root.querySelectorAll(cardSelector)];
+        // Group cards by their top edge (within 2px) so only cards in the
+        // same visual row are compared.
+        const rows = [];
+        for (const card of cards) {
+          const top = Math.round(card.getBoundingClientRect().top);
+          let row = rows.find((r) => Math.abs(r.top - top) <= 2);
+          if (!row) {
+            row = { top, cards: [] };
+            rows.push(row);
+          }
+          row.cards.push(card);
+        }
+        return rows
+          .filter((r) => r.cards.length > 1)
+          .map((r) =>
+            Object.fromEntries(
+              partSelectors.map((sel) => [
+                sel,
+                r.cards
+                  .map((c) => c.querySelector(sel))
+                  .filter(Boolean)
+                  .map((el) => Math.round(el.getBoundingClientRect().top)),
+              ])
+            )
+          );
+      },
+      { containerSelector, cardSelector, partSelectors }
+    );
+
+  const assertAligned = (rows, label) => {
+    expect(
+      rows.length,
+      `${label} should have a multi-card row`
+    ).toBeGreaterThan(0);
+    for (const row of rows) {
+      for (const [sel, tops] of Object.entries(row)) {
+        if (tops.length < 2) continue;
+        const spread = Math.max(...tops) - Math.min(...tops);
+        expect(
+          spread,
+          `${label} ${sel} tops should align (got ${tops.join(', ')})`
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+  };
+
+  assertAligned(
+    await rowTops('[data-dials]', '.dial-card', [
+      '.dial-wrap',
+      '.readout',
+      '.verdict',
+      '.deck-note',
+    ]),
+    'dials'
+  );
+  assertAligned(
+    await rowTops('[data-crew-stats]', 'div', ['dd']),
+    'crew-stats'
+  );
+  assertAligned(
+    await rowTops('[data-dora]', '.metric', [
+      '.metric-value',
+      '.bullet',
+      '.scale',
+      '.metric-note',
+    ]),
+    'dora'
+  );
+  assertAligned(
+    await rowTops('.outlook-cards', '.outlook-card', [
+      '.card-value',
+      '.card-note',
+    ]),
+    'outlook-cards'
+  );
+
+  // Even when one card in a row has no verdict (no CI data), its note stays
+  // aligned with the notes on sibling cards rather than shifting up.
+  await withFixture(page, csv, 200, { ...fullReport, ci: null });
+  await page.goto('/');
+  await expect(page.locator('[data-dials] .dial-card')).toHaveCount(5);
+  assertAligned(
+    await rowTops('[data-dials]', '.dial-card', [
+      '.dial-wrap',
+      '.readout',
+      '.deck-note',
+    ]),
+    'dials without ci verdict'
+  );
+});
