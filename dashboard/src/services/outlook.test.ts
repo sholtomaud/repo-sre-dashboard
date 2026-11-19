@@ -10,6 +10,7 @@ import {
   calibrateClasses,
   classesNow,
   costToKeepPace,
+  costsToKeepPace,
   expectedWait,
   parseClassHistory,
   totalHistory,
@@ -130,10 +131,16 @@ test('the cost of keeping pace mixes agent and human cost', () => {
     agentPerIssue: 2,
     humanHourlyRate: 100,
     humanHoursPerIssue: 2,
-    monthlyBudget: 1000,
+    monthlyHumanBudget: 1000,
+    monthlyAgenticBudget: 50,
   };
   assert.equal(costToKeepPace(cost, 10, 1), 600);
   assert.equal(costToKeepPace(cost, 10, 0), 60000);
+  // Each side's share, for its own budget.
+  assert.deepEqual(costsToKeepPace(cost, 10, 0.5), {
+    human: 30000,
+    agentic: 300,
+  });
 });
 
 test('the agents verdict compares with and without them', () => {
@@ -183,7 +190,8 @@ test('a flooded repository has lost control already, and agents add to it', asyn
       agentPerIssue: 2,
       humanHourlyRate: 100,
       humanHoursPerIssue: 2,
-      monthlyBudget: 500,
+      monthlyHumanBudget: 500,
+      monthlyAgenticBudget: 10,
     },
   });
   assert.equal(outlook.doom.all.day, 0);
@@ -191,7 +199,9 @@ test('a flooded repository has lost control already, and agents add to it', asyn
   assert.equal(outlook.completion.state, 'diverging');
   assert.equal(outlook.agents.verdict, 'burden');
   assert.ok(outlook.cost!.monthlyToKeepPace > outlook.cost!.monthlySpendNow);
-  assert.ok(outlook.doom.cost !== null);
+  // Each budget is forecast on its own.
+  assert.ok(outlook.doom.cost!.human !== null);
+  assert.ok(outlook.doom.cost!.agentic !== null);
 });
 
 test('the back-test checks past forecasts against what happened', async () => {

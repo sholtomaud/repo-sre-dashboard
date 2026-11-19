@@ -1,4 +1,4 @@
-import{n as e,r as t,t as n,u as r}from"./index-Cfy_G1Ia.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
+import{n as e,r as t,t as n,u as r}from"./index-DZhrLUFG.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -163,8 +163,9 @@ import{n as e,r as t,t as n,u as r}from"./index-Cfy_G1Ia.js";import{s as i}from"
       <li>
         <strong>Cost</strong>, once prices are set as Action inputs: what
         resolving issues costs a month now, what keeping pace with new issues
-        would cost, and when that would exceed the budget. Without prices the
-        dashboard shows no cost figures.
+        would cost, and when that would exceed each monthly budget: one for
+        people's time and one for what agents spend on APIs and CI. Without
+        prices the dashboard shows no cost figures.
       </li>
       <li>
         <strong>Reliability</strong>: the model re-run from each past day of the

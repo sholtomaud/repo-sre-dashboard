@@ -1,5 +1,5 @@
 import { BaseComponent } from '../../core/base-component.ts';
-import type { IssueClass, Outlook } from '../../services/outlook.ts';
+import type { Budget, IssueClass, Outlook } from '../../services/outlook.ts';
 import { CLASSES } from '../../services/outlook.ts';
 import { formatCount, formatDate, formatRate } from '../../lib/format.ts';
 import { svg } from '../../lib/svg.ts';
@@ -184,11 +184,8 @@ export class OutlookPanelComponent extends BaseComponent {
       '[data-cost]',
       cost
         ? `Cost: about ${money(cost.monthlySpendNow, cost.currency)} a month at today's resolution rate; keeping pace with new issues would take ${money(cost.monthlyToKeepPace, cost.currency)} a month.` +
-            (outlook.doom.cost
-              ? outlook.doom.cost.day === null
-                ? ` Within budget to ${horizon} (${percent(outlook.doom.cost.byHorizon)} chance of exceeding it).`
-                : ` Keeping pace is likely to exceed the budget by ${date(outlook.doom.cost.day)}.`
-              : ' Set a monthly-budget input to forecast when it would be exceeded.')
+            budgetText(outlook, 'human', horizon, date) +
+            budgetText(outlook, 'agentic', horizon, date)
         : 'Cost: set the agent-cost-per-issue and human-hourly-rate inputs to see what resolving issues costs, and when it would outrun a budget.'
     );
     set(
@@ -242,6 +239,24 @@ export class OutlookPanelComponent extends BaseComponent {
     );
     holder.replaceChildren(root);
   }
+}
+
+/** What the forecast says about one monthly budget. */
+function budgetText(
+  outlook: Outlook,
+  budget: Budget,
+  horizon: string,
+  date: (day: number) => string
+): string {
+  const whose = budget === 'human' ? "People's" : "Agents'";
+  const input =
+    budget === 'human' ? 'monthly-human-budget' : 'monthly-agentic-budget';
+  const doom = outlook.doom.cost?.[budget] ?? null;
+  if (!doom)
+    return ` Set ${input} to forecast when ${whose.toLowerCase()} budget would be exceeded.`;
+  return doom.day === null
+    ? ` ${whose} budget holds to ${horizon} (${percent(doom.byHorizon)} chance of exceeding it).`
+    : ` Keeping pace is likely to exceed ${whose.toLowerCase()} budget by ${date(doom.day)}.`;
 }
 
 function money(value: number, currency: string): string {

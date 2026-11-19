@@ -259,8 +259,13 @@ export interface CostConfig {
   agentPerIssue: number;
   humanHourlyRate: number;
   humanHoursPerIssue: number;
-  monthlyBudget: number | null;
+  /** What people's time may cost a month. */
+  monthlyHumanBudget: number | null;
+  /** What agents' API and CI spend may cost a month. */
+  monthlyAgenticBudget: number | null;
 }
+
+export type Budget = 'human' | 'agentic';
 
 /** When control is lost, by one measure. */
 export interface Doom {
@@ -283,7 +288,12 @@ export interface Outlook {
   horizonReason: 'rates' | 'limit';
   /** Chance of staying manageable up to the horizon, 0–1. */
   index: number;
-  doom: { all: Doom; humans: Doom; cost: Doom | null };
+  doom: {
+    all: Doom;
+    humans: Doom;
+    /** When keeping pace would exceed each budget; `null` without prices. */
+    cost: Record<Budget, Doom | null> | null;
+  };
   completion:
     | { state: 'diverging' }
     | { state: 'beyond'; days: number }
@@ -403,27 +413,42 @@ export function doomDate(
   };
 }
 
+/**
+ * Monthly cost to resolve issues as fast as they arrive, at a state, split
+ * into what it takes of people's budget and of agents' budget.
+ */
+export function costsToKeepPace(
+  cost: CostConfig,
+  arrivalsPerDay: number,
+  agentShare: number
+): Record<Budget, number> {
+  const human = cost.humanHourlyRate * cost.humanHoursPerIssue;
+  return {
+    human: 30 * arrivalsPerDay * (1 - agentShare) * human,
+    agentic: 30 * arrivalsPerDay * agentShare * cost.agentPerIssue,
+  };
+}
+
 /** Monthly cost to resolve issues as fast as they arrive, at a state. */
 export function costToKeepPace(
   cost: CostConfig,
   arrivalsPerDay: number,
   agentShare: number
 ): number {
-  const human = cost.humanHourlyRate * cost.humanHoursPerIssue;
-  return (
-    30 *
-    arrivalsPerDay *
-    (agentShare * cost.agentPerIssue + (1 - agentShare) * human)
-  );
+  const { human, agentic } = costsToKeepPace(cost, arrivalsPerDay, agentShare);
+  return human + agentic;
 }
 
-/** When keeping pace with new issues would exceed the monthly budget. */
+/** When keeping pace with new issues would exceed one monthly budget. */
 export function costDoom(
   e: Ensemble,
   cost: CostConfig,
-  horizonDay: number
+  horizonDay: number,
+  budget: Budget
 ): Doom | null {
-  if (cost.monthlyBudget === null) return null;
+  const limit =
+    budget === 'human' ? cost.monthlyHumanBudget : cost.monthlyAgenticBudget;
+  if (limit === null) return null;
   const over = Array.from<boolean>({ length: e.runs }).fill(false);
   const curve: number[] = [];
   let day: number | null = null;
@@ -439,7 +464,7 @@ export function costDoom(
           rolling(e, run, d, q, F.agents) + rolling(e, run, d, q, F.humans);
       }
       const share = all > 0 ? agents / all : 0;
-      if (costToKeepPace(cost, arrivals, share) > cost.monthlyBudget) {
+      if (costsToKeepPace(cost, arrivals, share)[budget] > limit) {
         over[run] = true;
       }
     }
@@ -611,7 +636,12 @@ export async function buildOutlook(
     doom: {
       all,
       humans,
-      cost: cost ? costDoom(withAgents, cost, horizonDay) : null,
+      cost: cost
+        ? {
+            human: costDoom(withAgents, cost, horizonDay, 'human'),
+            agentic: costDoom(withAgents, cost, horizonDay, 'agentic'),
+          }
+        : null,
     },
     completion: completion(withAgents, v.arrivals >= v.agent + v.human),
     agents: {

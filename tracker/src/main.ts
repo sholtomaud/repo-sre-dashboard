@@ -14,6 +14,7 @@
  *
  * Inputs come from environment variables set by action.yml.
  */
+import { costInputs } from './cost.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeCsv } from './csv.ts';
@@ -81,30 +82,6 @@ async function readSchedule(client: GitHubClient): Promise<Schedule> {
 function days(value: string, fallback: number): number {
   const n = Number(value);
   return value !== '' && Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-/**
- * The cost inputs, or `null` until the user sets them: costs are never
- * guessed. Agent cost per resolved issue, a human hourly rate and hours per
- * issue, and a monthly budget, all in the currency the user chooses.
- */
-function costInputs() {
-  const read = (name: string) => {
-    const n = Number(env(name));
-    return env(name) !== '' && Number.isFinite(n) && n >= 0 ? n : null;
-  };
-  const agentPerIssue = read('SRE_AGENT_COST_PER_ISSUE');
-  const humanHourly = read('SRE_HUMAN_HOURLY_RATE');
-  const humanHours = read('SRE_HUMAN_HOURS_PER_ISSUE');
-  const budget = read('SRE_MONTHLY_BUDGET');
-  if (agentPerIssue === null && humanHourly === null) return null;
-  return {
-    currency: env('SRE_CURRENCY', 'USD'),
-    agent_per_issue: agentPerIssue ?? 0,
-    human_hourly_rate: humanHourly ?? 0,
-    human_hours_per_issue: humanHours ?? 2,
-    monthly_budget: budget,
-  };
 }
 
 export async function main(now = new Date()): Promise<void> {
@@ -178,7 +155,13 @@ export async function main(now = new Date()): Promise<void> {
     bug: days(env('SRE_BUG_DAYS'), DEFAULT_LIMITS.bug),
     other: days(env('SRE_FEATURE_DAYS'), DEFAULT_LIMITS.other),
   };
-  const cost = costInputs();
+  const { cost, warnings: costWarnings } = costInputs((name) => env(name));
+  for (const warning of costWarnings) {
+    console.warn(`::warning::${warning}`);
+    const summaryFile = env('GITHUB_STEP_SUMMARY');
+    if (summaryFile)
+      fs.appendFileSync(summaryFile, `> [!WARNING]\n> ${warning}\n\n`);
+  }
   const checks = runAudit({
     repository,
     profile,
