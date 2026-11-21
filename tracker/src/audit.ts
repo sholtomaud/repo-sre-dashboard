@@ -173,6 +173,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
 ${steps[main]}
 `;
 }
@@ -550,6 +552,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
       - uses: ${ACTIONS.dependencyReview}
         with:
           fail-on-severity: high
@@ -599,6 +603,8 @@ jobs:
         language: [${codeqlLanguages.join(', ')}]
     steps:
       - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
       - uses: ${ACTIONS.codeqlInit}
         with:
           languages: \${{ matrix.language }}
@@ -717,6 +723,149 @@ jobs:
       },
     ],
     docs: 'https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token',
+  });
+
+  const hasNpm = ecosystems.includes('npm');
+  const scriptPackages = profile.installScriptPackages ?? [];
+  const scriptsOff = profile.installScriptsDisabled === true;
+  add({
+    id: 'install-scripts',
+    group: 'Supply chain and security',
+    title: 'Install scripts are off',
+    kind: 'setup',
+    impact: hasNpm ? 'medium' : 'low',
+    status: !hasNpm || scriptsOff ? 'pass' : 'improve',
+    evidence: !hasNpm
+      ? 'No npm packages'
+      : scriptsOff
+        ? 'Package install scripts are disabled'
+        : scriptPackages.length
+          ? `No ignore-scripts=true in .npmrc; ${plural(scriptPackages.length, 'lockfile package')} define install scripts: ${scriptPackages.slice(0, 8).join(', ')}${scriptPackages.length > 8 ? ` (+${scriptPackages.length - 8} more)` : ''}`
+          : 'No ignore-scripts=true in .npmrc (or Yarn/pnpm equivalent)',
+    why: 'Many npm supply-chain attacks run a postinstall script during npm ci to read tokens and keys before tests even start. Disabling install scripts stops packages from executing arbitrary code on install.',
+    recommendation:
+      'Add ignore-scripts=true to .npmrc (or enableScripts: false in .yarnrc.yml / ignoreScripts: true in pnpm-workspace.yaml) so packages cannot run lifecycle scripts during install.',
+    fixes: hasNpm
+      ? [
+          {
+            path: '.npmrc',
+            language: 'text',
+            content: 'ignore-scripts=true\n',
+          },
+        ]
+      : [],
+    docs: 'https://docs.npmjs.com/cli/v10/using-npm/config#ignore-scripts',
+  });
+
+  const wfFile = (w: { path: string }) => w.path.split('/').pop() ?? w.path;
+  const secretPkgJobs = workflows.flatMap((w) =>
+    (w.secretPackageJobs ?? []).map((job) => `${wfFile(w)}/${job}`)
+  );
+  add({
+    id: 'secrets-in-package-jobs',
+    group: 'Supply chain and security',
+    title: 'Secrets stay out of jobs that run packages',
+    kind: 'setup',
+    impact: 'high',
+    status: secretPkgJobs.length === 0 ? 'pass' : 'improve',
+    evidence: !workflows.length
+      ? 'No workflows'
+      : secretPkgJobs.length === 0
+        ? 'No workflow job combines repository secrets with package installs or scripts'
+        : `${plural(secretPkgJobs.length, 'job')} pass repository secrets and run packages: ${secretPkgJobs.join(', ')}`,
+    why: 'A compromised package or install script can read every secret exposed to the job environment. Keeping repository secrets out of jobs that install or run packages keeps credentials out of reach.',
+    recommendation:
+      'Split each listed job into two: install dependencies and run tests in a job with no repository secrets, then pass build artefacts to a separate publish or deploy job that holds the secret.',
+    fixes: [
+      {
+        path: '',
+        language: 'yaml',
+        content: `jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
+      - run: npm ci && npm test
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Repository secrets live only here; do not install packages in this job.
+`,
+      },
+    ],
+    docs: 'https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions',
+  });
+
+  const agentCodeJobs = workflows.flatMap((w) =>
+    (w.agentCodeJobs ?? []).map((job) => `${wfFile(w)}/${job}`)
+  );
+  const hasAgentSecret = workflows.some((w) => w.hasAgentSecretJob);
+  add({
+    id: 'agent-jobs-isolated',
+    group: 'Supply chain and security',
+    title: 'Agent jobs cannot run repository code',
+    kind: 'setup',
+    impact: hasAgentSecret ? 'high' : 'low',
+    status: agentCodeJobs.length === 0 ? 'pass' : 'improve',
+    evidence: !hasAgentSecret
+      ? 'No workflow runs a coding agent with an API key'
+      : agentCodeJobs.length === 0
+        ? 'Agent jobs with API keys do not grant a shell or install packages'
+        : `${plural(agentCodeJobs.length, 'agent job')} hold an API key and grant a shell or install packages: ${agentCodeJobs.join(', ')}`,
+    why: 'A coding agent job holds an API key. If that same job installs packages or gives the agent a shell to run repository code, a malicious dependency or prompt injection can exfiltrate the key.',
+    recommendation:
+      'Restrict each agent job so it only reads and edits files and opens pull requests (for example, disallow Bash tools and omit package installs). Let ordinary CI run installs and tests on the pull request, with no secrets.',
+    fixes: [
+      {
+        path: '',
+        language: 'yaml',
+        content: `- uses: ${ACTIONS.claudeCode}
+  with:
+    anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
+    claude_args: '--disallowedTools Bash'
+    # Let the agent edit files and open a PR; run tests in ordinary CI with no secrets.
+`,
+      },
+    ],
+    docs: 'https://github.com/anthropics/claude-code-action/blob/main/docs/security.md',
+  });
+
+  const persistedCheckouts = workflows.flatMap((w) =>
+    (w.persistedCheckoutJobs ?? []).map((job) => `${wfFile(w)}/${job}`)
+  );
+  const hasCheckout = workflows.some((w) => w.hasCheckout);
+  add({
+    id: 'checkout-persist-credentials',
+    group: 'Supply chain and security',
+    title: 'Checkouts do not keep the token',
+    kind: 'setup',
+    impact: 'low',
+    status: persistedCheckouts.length === 0 ? 'pass' : 'improve',
+    evidence: !workflows.length
+      ? 'No workflows'
+      : !hasCheckout
+        ? 'No workflow checks out code'
+        : persistedCheckouts.length === 0
+          ? 'Every non-pushing checkout sets persist-credentials: false'
+          : `${plural(persistedCheckouts.length, 'non-pushing job')} leave the git token in .git/config: ${persistedCheckouts.join(', ')}`,
+    why: 'actions/checkout writes the GitHub token into .git/config by default so later steps can push. Any compromised package or script in a job that does not push can read .git/config and reuse that token.',
+    recommendation:
+      'Set persist-credentials: false on actions/checkout in every job that does not push commits.',
+    fixes: [
+      {
+        path: '',
+        language: 'yaml',
+        content: `- uses: ${ACTIONS.checkout}
+  with:
+    persist-credentials: false
+`,
+      },
+    ],
+    docs: 'https://github.com/actions/checkout#usage',
   });
 
   add({
@@ -1167,9 +1316,12 @@ jobs:
       id-token: write
     steps:
       - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
       - uses: ${ACTIONS.claudeCode}
         with:
           anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--disallowedTools Bash'
           prompt: |
             For a new issue: label it bug, enhancement, security or question,
             ask for anything a bug report is missing, and link duplicates.
@@ -1188,9 +1340,12 @@ jobs:
       id-token: write
     steps:
       - uses: ${ACTIONS.checkout}
+        with:
+          persist-credentials: false
       - uses: ${ACTIONS.claudeCode}
         with:
           anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--disallowedTools Bash'
           prompt: |
             Answer the collaborator's @claude comment using repository files
             and the dashboard data in the gh-pages branch

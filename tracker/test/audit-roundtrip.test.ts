@@ -24,6 +24,7 @@ import {
   KEY_FILES,
   ciHealth,
   hasDependencyCooldown,
+  hasInstallScriptsDisabled,
   readWorkflow,
   type KeyFile,
   type Profile,
@@ -166,6 +167,15 @@ function applyFileFixes(
           next.dependencyCooldown = hasDependencyCooldown(filePath, content);
         }
       }
+    }
+
+    if (
+      /(^|\/)(\.npmrc|\.yarnrc\.ya?ml|pnpm-workspace\.ya?ml)$/i.test(filePath)
+    ) {
+      next.installScriptsDisabled = hasInstallScriptsDisabled(
+        filePath,
+        content
+      );
     }
 
     if (AGENT_DOCS.test(filePath)) {
@@ -465,6 +475,26 @@ test('applying emitted audit file fixes resolves setup checks with zero regressi
       `${name}: agent-instructions-content`
     );
     assert.equal(afterMap['claude-md'].status, 'pass', `${name}: claude-md`);
+    assert.equal(
+      afterMap['install-scripts'].status,
+      'pass',
+      `${name}: install-scripts`
+    );
+    assert.equal(
+      afterMap['secrets-in-package-jobs'].status,
+      'pass',
+      `${name}: secrets-in-package-jobs`
+    );
+    assert.equal(
+      afterMap['agent-jobs-isolated'].status,
+      'pass',
+      `${name}: agent-jobs-isolated`
+    );
+    assert.equal(
+      afterMap['checkout-persist-credentials'].status,
+      'pass',
+      `${name}: checkout-persist-credentials`
+    );
 
     // After applying ci.yml, the emitted branch-rules snippet must name the
     // exact test check(s) that ci.yml reports, with no placeholder left behind.
