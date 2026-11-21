@@ -448,12 +448,14 @@ export class FlightDeckComponent extends BaseComponent {
       display: answered === null ? '—' : formatPercent(answered),
       bands: shareBands(50, 80),
       verdict: responses
-        ? awaiting > 0
-          ? {
-              tone: 'warn',
-              text: `${formatCount(awaiting)} open with no reply`,
-            }
-          : { tone: 'good', text: 'Every open issue has a reply' }
+        ? open === 0
+          ? { tone: 'good', text: 'No open issues' }
+          : awaiting > 0
+            ? {
+                tone: 'warn',
+                text: `${formatCount(awaiting)} open with no reply`,
+              }
+            : { tone: 'good', text: 'Every open issue has a reply' }
         : null,
       note: first?.count
         ? `median first reply ${formatDuration(first.medianHours)}`
@@ -709,7 +711,7 @@ function crewRow(
     if (value <= 0) continue;
     const seg = document.createElement('span');
     seg.className = cls;
-    seg.style.flex = `${value} 0 0`;
+    seg.style.flex = `${value / total} 0 0`;
     bar.append(seg);
   }
   if (total === 0) bar.classList.add('empty');

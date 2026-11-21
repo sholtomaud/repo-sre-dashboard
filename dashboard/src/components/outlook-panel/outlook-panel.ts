@@ -118,21 +118,25 @@ export class OutlookPanelComponent extends BaseComponent {
     const c = outlook.completion;
     set(
       '[data-completion]',
-      c.state === 'diverging'
-        ? 'Diverging'
-        : c.state === 'beyond'
-          ? `Not within ${c.days} days`
-          : date(c.p50)
+      c.state === 'clear'
+        ? 'Clear'
+        : c.state === 'diverging'
+          ? 'Diverging'
+          : c.state === 'beyond'
+            ? `Not within ${c.days} days`
+            : date(c.p50)
     );
     set(
       '[data-completion-note]',
-      c.state === 'diverging'
-        ? 'issues arrive at least as fast as they are resolved, so there is no completion date'
-        : c.state === 'beyond'
-          ? 'fewer than half the simulations clear it'
-          : c.p85 === null
-            ? '50% chance by then'
-            : `50% chance by then; 85% by ${date(c.p85)}`
+      c.state === 'clear'
+        ? 'no open issues right now'
+        : c.state === 'diverging'
+          ? 'issues arrive at least as fast as they are resolved, so there is no completion date'
+          : c.state === 'beyond'
+            ? 'fewer than half the simulations clear it'
+            : c.p85 === null
+              ? '50% chance by then'
+              : `50% chance by then; 85% by ${date(c.p85)}`
     );
 
     const a = outlook.agents;

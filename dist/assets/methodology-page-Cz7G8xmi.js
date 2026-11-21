@@ -1,4 +1,4 @@
-import{d as e,n as t,r as n,t as r}from"./index-CIMQL_Wd.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
+import{d as e,n as t,r as n,t as r}from"./index-HoY2h4ys.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>

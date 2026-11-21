@@ -219,3 +219,74 @@ test('the back-test checks past forecasts against what happened', async () => {
     null
   );
 });
+
+test('a repository that resolves issues the same day stays manageable with a clear backlog', async () => {
+  // Issues arrive and are closed on the same UTC day, so every midnight
+  // snapshot has open === 0 (zero end-of-day exposure, like a fast-clearing
+  // repository). The model must not fall back to the 1e-3/day floor or call
+  // an already-empty backlog diverging.
+  const header = [
+    'date',
+    'open',
+    'agent_closed',
+    'human_closed',
+    ...CLASSES.flatMap((c) => [
+      `${c}_opened_by_agents`,
+      `${c}_opened_by_humans`,
+      `${c}_closed_by_agents`,
+      `${c}_closed_by_humans`,
+    ]),
+  ];
+  const lines = [header.join(',')];
+  for (let d = 0; d < 21; d++) {
+    const date = new Date(Date.UTC(2026, 9, 1 + d)).toISOString().slice(0, 10);
+    // 24 historical issues closed earlier, plus 1 opened and closed on day 18.
+    const count = d >= 18 ? 25 : 24;
+    const cells = [
+      0,
+      0,
+      0,
+      0, // security
+      0,
+      0,
+      0,
+      0, // bug
+      0,
+      count,
+      0,
+      count, // other: all closed the same day they opened
+    ];
+    lines.push([date, 0, 0, count, ...cells].join(','));
+  }
+  const history = parseClassHistory(lines.join('\n'))!;
+  const cal = calibrateClasses(history);
+  const rate = cal.other.humansPerOpen!.count / cal.other.humansPerOpen!.days;
+  assert.ok(rate >= 1, `expected fast resolution rate >= 1/day, got ${rate}`);
+
+  const outlook = await buildOutlook(history, loadSimulator, {
+    runs: 60,
+    days: 120,
+    seed: 4,
+  });
+  assert.ok(outlook.index > 0.8, `expected high index, got ${outlook.index}`);
+  assert.equal(outlook.doom.all.day, null);
+  assert.deepEqual(outlook.completion, { state: 'clear' });
+});
+
+test('same-day resolutions by agents keep agent share in the pooled prior', () => {
+  const history = parseClassHistory(
+    csv(14, { security: [0, 0, 0, 0], bug: [0, 1, 1, 0], other: [0, 0, 0, 0] })
+  )!;
+  const cal = calibrateClasses(history);
+  const agentRate = cal.bug.agentsPerOpen!.count / cal.bug.agentsPerOpen!.days;
+  const humanRate = cal.bug.humansPerOpen!.count / cal.bug.humansPerOpen!.days;
+  assert.ok(
+    agentRate >= 1 && agentRate > humanRate,
+    `expected agent rate (${agentRate}) >= 1 and > human rate (${humanRate})`
+  );
+  // A class with no own history borrows the pooled agent share, not 0.
+  assert.ok(
+    cal.security.agentsPerOpen!.count > 0.5,
+    `expected security agent prior > 0.5, got ${cal.security.agentsPerOpen!.count}`
+  );
+});
