@@ -13,7 +13,7 @@ pages_site
 path="$(dashboard_path)"
 echo "SRE_DASHBOARD_URL=${PAGES_URL}${path:+$path/}" >> "${GITHUB_ENV:-/dev/null}"
 
-if [[ "${SRE_PUBLISH_TO:-pages}" == "branch" ]]; then
+if [[ "${SRE_PUBLISH_TO:-pages}" == "branch" || "${SRE_PUBLISH_TO:-pages}" == "branch-artifact" ]]; then
   exec bash "$GITHUB_ACTION_PATH/scripts/checkout-pages.sh"
 fi
 

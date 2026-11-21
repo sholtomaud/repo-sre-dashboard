@@ -18,13 +18,17 @@ inputs:
     default: dashboard
   publish-to:
     description: >-
-      How to publish. "pages" (the default) deploys with GitHub's Pages
-      actions: set Settings → Pages → Source to "GitHub Actions", and give the
-      job pages: write and id-token: write. "branch" commits to the branch
-      named below instead, beside anything else on it.
+      How to publish. "pages" (the default) uploads and deploys with GitHub's
+      Pages actions (set Settings → Pages → Source to "GitHub Actions", and
+      give the job pages: write and id-token: write). "artifact" uploads the
+      Pages artifact without deploying, so a separate deploy job can run
+      actions/deploy-pages. "branch" commits to the branch named below beside
+      any existing site. "branch-artifact" commits to the branch, strips .git,
+      and uploads the combined directory as a Pages artifact for a separate
+      actions/deploy-pages job.
     default: pages
   branch:
-    description: With publish-to branch, the Pages branch. Created if it does not exist.
+    description: With publish-to branch or branch-artifact, the Pages branch. Created if it does not exist.
     default: gh-pages
   title:
     description: The dashboard's title. Defaults to the repository's name.
@@ -152,12 +156,17 @@ runs:
       run: bash "$GITHUB_ACTION_PATH/scripts/assemble.sh"
 
     - name: Push to the Pages branch
-      if: inputs.publish-to == 'branch'
+      if: inputs.publish-to == 'branch' || inputs.publish-to == 'branch-artifact'
       shell: bash
       env:
         SRE_PATH: ${{ inputs.path }}
         SRE_BRANCH: ${{ inputs.branch }}
       run: bash "$GITHUB_ACTION_PATH/scripts/publish.sh"
+
+    - name: Strip git metadata before Pages upload
+      if: inputs.publish-to == 'branch-artifact'
+      shell: bash
+      run: rm -rf "${{ runner.temp }}/sre-pages/.git"
 
     - name: Upload the site
       if: inputs.publish-to != 'branch'
@@ -165,8 +174,15 @@ runs:
       with:
         path: ${{ runner.temp }}/sre-pages
 
+    - name: Wait for Pages artifact
+      if: inputs.publish-to == 'pages'
+      shell: bash
+      env:
+        SRE_TOKEN: ${{ inputs.token }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/wait-for-artifact.sh"
+
     - name: Deploy to GitHub Pages
-      if: inputs.publish-to != 'branch'
+      if: inputs.publish-to == 'pages'
       id: deploy
       uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 

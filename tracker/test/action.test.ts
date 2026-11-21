@@ -464,3 +464,103 @@ test(
     }
   }
 );
+
+test('wait-for-artifact polls until the github-pages artifact is visible and falls back on 403', async () => {
+  let calls = 0;
+  let statusCode = 200;
+  const server = http.createServer((req, res) => {
+    calls++;
+    res.writeHead(statusCode, { 'content-type': 'application/json' });
+    if (statusCode !== 200) {
+      res.end(JSON.stringify({ message: 'Resource not accessible' }));
+      return;
+    }
+    // Simulate GitHub's eventual consistency: 0 artifacts on first two polls,
+    // then visible on the third.
+    const count = calls >= 3 ? 1 : 0;
+    res.end(JSON.stringify({ total_count: count, artifacts: [] }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  try {
+    const baseEnv = {
+      ...process.env,
+      GITHUB_API_URL: `http://127.0.0.1:${port}`,
+      GITHUB_REPOSITORY: 'owner/project',
+      GITHUB_RUN_ID: '12345',
+      SRE_TOKEN: 'test-token',
+      SRE_ARTIFACT_WAIT_ATTEMPTS: '5',
+      SRE_ARTIFACT_WAIT_SECONDS: '0.05',
+    };
+    const { stdout } = await promisify(execFile)(
+      'bash',
+      [path.join(root, 'scripts', 'wait-for-artifact.sh')],
+      { env: baseEnv, encoding: 'utf8' }
+    );
+    assert.equal(calls, 3);
+    assert.match(stdout, /github-pages.*ready/i);
+
+    // Without actions: read (HTTP 403), it falls back cleanly without failing.
+    calls = 0;
+    statusCode = 403;
+    const fallback = await promisify(execFile)(
+      'bash',
+      [path.join(root, 'scripts', 'wait-for-artifact.sh')],
+      {
+        env: { ...baseEnv, SRE_ARTIFACT_FALLBACK_SECONDS: '0.05' },
+        encoding: 'utf8',
+      }
+    );
+    assert.equal(calls, 1);
+    assert.match(fallback.stdout, /actions: read|waiting/i);
+  } finally {
+    server.close();
+  }
+});
+
+test(
+  'branch-artifact mode keeps an existing root site on gh-pages intact',
+  { skip: !hasSite && 'dist/ is not built (run npm run build:action)' },
+  async () => {
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sre-branch-art-'));
+    const site = path.join(work, 'sre-pages');
+    fs.mkdirSync(path.join(site, 'dashboard', 'data'), { recursive: true });
+    // Existing site files on gh-pages (e.g. a docs or app site at root).
+    fs.writeFileSync(path.join(site, 'index.html'), '<h1>Main site</h1>\n');
+    fs.writeFileSync(path.join(site, '404.html'), '<h1>Main 404</h1>\n');
+    const output = path.join(work, 'output');
+    fs.writeFileSync(output, '');
+    try {
+      const env = {
+        ...process.env,
+        GITHUB_ACTION_PATH: root,
+        GITHUB_REPOSITORY: 'owner/project',
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_OUTPUT: output,
+        RUNNER_TEMP: work,
+        SRE_PUBLISH_TO: 'branch-artifact',
+        SRE_PATH: 'dashboard',
+      };
+      await promisify(execFile)(
+        'bash',
+        [path.join(root, 'scripts', 'assemble.sh')],
+        { env, cwd: work, encoding: 'utf8' }
+      );
+      // Root index.html and 404.html belong to the existing site and are kept.
+      assert.equal(
+        fs.readFileSync(path.join(site, 'index.html'), 'utf8'),
+        '<h1>Main site</h1>\n'
+      );
+      assert.equal(
+        fs.readFileSync(path.join(site, '404.html'), 'utf8'),
+        '<h1>Main 404</h1>\n'
+      );
+      assert.match(
+        fs.readFileSync(path.join(site, 'dashboard', 'index.html'), 'utf8'),
+        /<base href="\/project\/dashboard\/"/
+      );
+    } finally {
+      fs.rmSync(work, { recursive: true, force: true });
+    }
+  }
+);
