@@ -128,10 +128,11 @@ function parseWorkflowJobs(text: string): { id: string; lines: string[] }[] {
     body.find((l) => l.trim() && !l.trim().startsWith('#')) ?? ''
   )?.[1];
   if (!indent) return [];
-  const jobStart = new RegExp(`^${indent}([A-Za-z_][\\w-]*):\\s*(#.*)?$`);
   const jobs: { id: string; lines: string[] }[] = [];
   for (const line of body) {
-    const id = jobStart.exec(line)?.[1];
+    const id = line.startsWith(indent)
+      ? /^([A-Za-z_][\w-]*):\s*(#.*)?$/.exec(line.slice(indent.length))?.[1]
+      : undefined;
     if (id) jobs.push({ id, lines: [] });
     else jobs.at(-1)?.lines.push(line);
   }
@@ -152,12 +153,19 @@ function testJobs(jobs: { id: string; lines: string[] }[]): {
     const text = job.lines.join('\n');
     if (!TEST_COMMAND.test(text)) continue;
     const own = /^(\s+)\S/.exec(job.lines.find((l) => l.trim()) ?? '')?.[1];
-    const name = own
-      ? new RegExp(`^${own}name:\\s*(.+?)\\s*$`, 'm')
-          .exec(text)?.[1]
-          ?.replace(/^(['"])(.*)\1$/, '$2')
-      : undefined;
-    const matrix = own ? new RegExp(`^${own}strategy:`, 'm').test(text) : false;
+    let name: string | undefined;
+    let matrix = false;
+    if (own) {
+      for (const line of job.lines) {
+        if (!line.startsWith(own)) continue;
+        const rest = line.slice(own.length);
+        if (name === undefined) {
+          const match = /^name:\s*(.+?)\s*$/.exec(rest);
+          if (match) name = match[1].replace(/^(['"])(.*)\1$/, '$2');
+        }
+        if (/^strategy:/.test(rest)) matrix = true;
+      }
+    }
     if (matrix || name?.includes('${{')) found.unresolvedTestJobs++;
     else found.testJobs.push(name ?? job.id);
   }
@@ -221,11 +229,16 @@ function extractJobSteps(jobLines: string[]): string[][] {
     body.find((l) => /^\s*-\s/.test(l)) ?? ''
   )?.[1];
   if (itemIndent === undefined) return [];
-  const stepStart = new RegExp(`^${itemIndent}-\\s`);
   const steps: string[][] = [];
   for (const line of body) {
-    if (stepStart.test(line)) steps.push([line]);
-    else steps.at(-1)?.push(line);
+    if (
+      line.startsWith(itemIndent) &&
+      /^-\s/.test(line.slice(itemIndent.length))
+    ) {
+      steps.push([line]);
+    } else {
+      steps.at(-1)?.push(line);
+    }
   }
   return steps;
 }
