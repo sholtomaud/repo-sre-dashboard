@@ -1,4 +1,4 @@
-import{u as e}from"./index-UlpsK3dC.js";import{i as t}from"./health-DxBEsnbe.js";import{a as n,t as r}from"./format-CJZsMI5O.js";import{r as i}from"./instruments-CT3J5AsX.js";var a=`<article class="card delivery">
+import{d as e}from"./index-CIMQL_Wd.js";import{i as t}from"./health-DxBEsnbe.js";import{o as n,t as r}from"./format-0i7eZnoE.js";import{r as i}from"./instruments-BcSGmNn_.js";var a=`<article class="card delivery">
   <header class="panel-head">
     <h2>Delivery</h2>
     <p>

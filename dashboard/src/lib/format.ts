@@ -15,6 +15,19 @@ export function formatPercent(share: number): string {
   return `${(share * 100).toFixed(1)}%`;
 }
 
+/** A whole-currency figure (`$1,250`), falling back to `<count> <code>`. */
+export function formatMoney(value: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${formatCount(value)} ${currency}`;
+  }
+}
+
 /** `+12`, `−3` or `±0`. */
 export function formatSigned(value: number, digits = 0): string {
   const text = Math.abs(value).toFixed(digits);

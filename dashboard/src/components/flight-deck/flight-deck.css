@@ -108,7 +108,7 @@
 :host .deck-row {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
 }
 :host .instrument {
   display: grid;
@@ -118,6 +118,9 @@
   color: inherit;
   text-decoration: none;
   transition: border-color 0.15s;
+}
+:host .instrument[hidden] {
+  display: none;
 }
 :host a.instrument:hover {
   border-color: var(--axis);
@@ -420,6 +423,30 @@
   stroke: var(--ink-muted);
   stroke-dasharray: 4 3;
   vector-effect: non-scaling-stroke;
+}
+:host .fin-pools {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+:host .fin-pools li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+:host .fin-pool-ratio {
+  font-weight: 700;
+}
+:host .fin-pool-ratio[data-tone='bad'] {
+  color: var(--critical-ink);
+}
+:host .fin-pool-ratio[data-tone='warn'] {
+  color: var(--warning-ink, var(--ink));
 }
 
 /* Dials for bounded figures. Subgrid keeps heads, dials, verdicts and notes

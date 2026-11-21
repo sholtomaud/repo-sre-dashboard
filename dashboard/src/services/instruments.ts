@@ -10,7 +10,8 @@
  *
  * DOM-free; unit-tested with `node --test`.
  */
-import { doomLoopLevel, type DoomLoopLevel } from './metrics.ts';
+import { doomLoopLevel, type DoomLoopLevel, type Velocity } from './metrics.ts';
+import { costsToKeepPace, type CostConfig } from './outlook.ts';
 import type { Band, ClassFacts, IssueClass, Zone } from './report.ts';
 
 export type AnnunciatorState = 'off' | 'caution' | 'warning';
@@ -31,6 +32,10 @@ export interface AnnunciatorInputs {
   linkedFixShare: number | null;
   readinessZone: Zone['id'] | null;
   doraBands: (Band | null)[];
+  financial?: {
+    ratio: number | null;
+    driver: 'human' | 'agentic' | null;
+  } | null;
 }
 
 const NO_DATA = 'No data yet';
@@ -182,7 +187,182 @@ export function annunciators(input: AnnunciatorInputs): Annunciator[] {
             : 'No DORA metric low'
         )
   );
+  if (input.financial) {
+    const { ratio, driver } = input.financial;
+    const whose = driver === 'agentic' ? "agents'" : "people's";
+    if (ratio === null) {
+      tiles.push(
+        tile('budget', 'Budget', '#outlook', 'off', 'No activity yet')
+      );
+    } else if (ratio === Infinity) {
+      tiles.push(
+        tile(
+          'budget',
+          'Budget',
+          '#outlook',
+          'warning',
+          `Exceeds ${whose} budget`
+        )
+      );
+    } else if (ratio > 2) {
+      tiles.push(
+        tile(
+          'budget',
+          'Budget',
+          '#outlook',
+          'warning',
+          `${times(ratio)} ${whose} budget`
+        )
+      );
+    } else if (ratio > 1) {
+      tiles.push(
+        tile(
+          'budget',
+          'Budget',
+          '#outlook',
+          'caution',
+          `${times(ratio)} ${whose} budget`
+        )
+      );
+    } else if (ratio >= 0.75) {
+      tiles.push(
+        tile(
+          'budget',
+          'Budget',
+          '#outlook',
+          'caution',
+          `Near ${whose} budget (${times(ratio)})`
+        )
+      );
+    } else {
+      tiles.push(
+        tile(
+          'budget',
+          'Budget',
+          '#outlook',
+          'off',
+          `Within budget (${times(ratio)})`
+        )
+      );
+    }
+  }
   return tiles;
+}
+
+export type FinancialDoomLevel =
+  'within' | 'tight' | 'over' | 'doom' | 'unknown';
+
+export interface BudgetPressure {
+  budget: number | null;
+  monthlySpendNow: number;
+  monthlyToKeepPace: number;
+  /** Keep-pace cost divided by budget; null when budget is unset or no activity. */
+  ratio: number | null;
+}
+
+export interface FinancialDoomLoop {
+  currency: string;
+  /** Worst active budget ratio (human vs agentic), or null without activity. */
+  ratio: number | null;
+  /** Which budget drives the headline ratio when a ratio exists. */
+  driver: 'human' | 'agentic' | null;
+  level: FinancialDoomLevel;
+  monthlySpendNow: number;
+  monthlyToKeepPace: number;
+  monthlyBudgetTotal: number;
+  /** Estimated cost to clear the current open backlog at the blended cost. */
+  backlogLiability: number;
+  /** Daily growth in unpaid backlog liability when arrivals outpace resolutions. */
+  dailyLiabilityGrowth: number;
+  human: BudgetPressure;
+  agentic: BudgetPressure;
+}
+
+/** Band a financial pressure ratio (monthly keep-pace cost ÷ monthly budget). */
+export function financialDoomLevel(ratio: number | null): FinancialDoomLevel {
+  if (ratio === null || Number.isNaN(ratio)) return 'unknown';
+  if (ratio > 2) return 'doom';
+  if (ratio > 1) return 'over';
+  if (ratio >= 0.75) return 'tight';
+  return 'within';
+}
+
+/**
+ * Financial doom loop: monthly cost to keep pace with arrivals divided by each
+ * configured monthly budget (people and agents separately, driven by the worse
+ * one so an agentic blowout is never masked by a larger human budget).
+ */
+export function financialDoomLoop(
+  cost: CostConfig | null,
+  v: Pick<Velocity, 'agent' | 'human' | 'arrivals' | 'days'>,
+  open: number
+): FinancialDoomLoop | null {
+  if (
+    !cost ||
+    (cost.monthlyHumanBudget === null && cost.monthlyAgenticBudget === null)
+  ) {
+    return null;
+  }
+  const resolved = v.agent + v.human;
+  const agentShare = resolved > 0 ? v.agent / resolved : 0;
+  const humanPerIssue = cost.humanHourlyRate * cost.humanHoursPerIssue;
+  const blendedPerIssue =
+    agentShare * cost.agentPerIssue + (1 - agentShare) * humanPerIssue;
+  const keepPace = costsToKeepPace(cost, v.arrivals, agentShare);
+  const humanSpendNow = 30 * v.human * humanPerIssue;
+  const agenticSpendNow = 30 * v.agent * cost.agentPerIssue;
+
+  const poolRatio = (spend: number, budget: number | null): number | null => {
+    if (budget === null || v.days <= 0) return null;
+    if (budget === 0) return spend > 0 ? Infinity : 0;
+    return spend / budget;
+  };
+
+  const human: BudgetPressure = {
+    budget: cost.monthlyHumanBudget,
+    monthlySpendNow: humanSpendNow,
+    monthlyToKeepPace: keepPace.human,
+    ratio: poolRatio(keepPace.human, cost.monthlyHumanBudget),
+  };
+  const agentic: BudgetPressure = {
+    budget: cost.monthlyAgenticBudget,
+    monthlySpendNow: agenticSpendNow,
+    monthlyToKeepPace: keepPace.agentic,
+    ratio: poolRatio(keepPace.agentic, cost.monthlyAgenticBudget),
+  };
+
+  let ratio: number | null = null;
+  let driver: 'human' | 'agentic' | null = null;
+  if (human.ratio !== null && agentic.ratio !== null) {
+    if (agentic.ratio > human.ratio) {
+      ratio = agentic.ratio;
+      driver = 'agentic';
+    } else {
+      ratio = human.ratio;
+      driver = 'human';
+    }
+  } else if (human.ratio !== null) {
+    ratio = human.ratio;
+    driver = 'human';
+  } else if (agentic.ratio !== null) {
+    ratio = agentic.ratio;
+    driver = 'agentic';
+  }
+
+  return {
+    currency: cost.currency,
+    ratio,
+    driver,
+    level: financialDoomLevel(ratio),
+    monthlySpendNow: humanSpendNow + agenticSpendNow,
+    monthlyToKeepPace: keepPace.human + keepPace.agentic,
+    monthlyBudgetTotal:
+      (cost.monthlyHumanBudget ?? 0) + (cost.monthlyAgenticBudget ?? 0),
+    backlogLiability: Math.max(0, open) * blendedPerIssue,
+    dailyLiabilityGrowth: Math.max(0, v.arrivals - resolved) * blendedPerIssue,
+    human,
+    agentic,
+  };
 }
 
 /**
@@ -226,6 +406,24 @@ export function ratioScale(ratio: number): {
     position,
     clipped: raw > 1 || raw < 0,
     zone: doomLoopLevel(ratio),
+  };
+}
+
+/**
+ * Where a financial pressure ratio sits on the same logarithmic scale from
+ * ⅛× to 8×, centred on the budget cap (1×).
+ */
+export function financialRatioScale(ratio: number): {
+  position: number;
+  clipped: boolean;
+  zone: FinancialDoomLevel;
+} {
+  const raw = ratio <= 0 ? -Infinity : (Math.log2(ratio) + 3) / 6;
+  const position = Math.min(1, Math.max(0, raw));
+  return {
+    position,
+    clipped: raw > 1 || raw < 0,
+    zone: financialDoomLevel(ratio),
   };
 }
 

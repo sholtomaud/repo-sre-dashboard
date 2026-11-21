@@ -3,12 +3,14 @@ import { dial, velocityDial, type DialBand } from '../../lib/dial.ts';
 import { svg } from '../../lib/svg.ts';
 import {
   formatCount,
+  formatMoney,
   formatPercent,
   formatRate,
   formatSigned,
   formatSpan,
 } from '../../lib/format.ts';
 import type { Snapshot } from '../../services/metrics.ts';
+import type { CostConfig } from '../../services/outlook.ts';
 import {
   agentMergedShare,
   agentPullMetrics,
@@ -31,9 +33,12 @@ import {
 import {
   RATIO_TICKS,
   annunciators,
+  financialDoomLoop,
+  financialRatioScale,
   niceCeiling,
   ratioScale,
   type Annunciator,
+  type FinancialDoomLoop,
 } from '../../services/instruments.ts';
 import template from './flight-deck.html?raw';
 import style from './flight-deck.css?raw';
@@ -47,6 +52,7 @@ export interface DeckData {
   pulls: Pulls | null;
   responses: ReturnType<typeof parseResponses>;
   closures: ReturnType<typeof closureSummary>;
+  cost?: CostConfig | null;
 }
 
 const ICONS: Record<Tone, string> = {
@@ -106,14 +112,20 @@ export class FlightDeckComponent extends BaseComponent {
   private draw() {
     const data = this.data;
     if (!data) return;
-    this.drawAnnunciators(data);
+    const fin = financialDoomLoop(
+      data.cost ?? null,
+      data.snapshot.velocity,
+      data.snapshot.latest.open
+    );
+    this.drawAnnunciators(data, fin);
     this.drawVelocity(data);
     this.drawRatio(data);
+    this.drawFinancial(data, fin);
     this.drawDials(data);
     this.drawCrew(data);
   }
 
-  private drawAnnunciators(data: DeckData) {
+  private drawAnnunciators(data: DeckData, fin: FinancialDoomLoop | null) {
     const d = data.delivery;
     const tiles = annunciators({
       classes: data.classes,
@@ -130,6 +142,7 @@ export class FlightDeckComponent extends BaseComponent {
             d.restoreHours.band,
           ]
         : [],
+      financial: fin ? { ratio: fin.ratio, driver: fin.driver } : null,
     });
     this.querySelector('[data-tiles]')!.replaceChildren(
       ...tiles.map((t) => this.tile(t))
@@ -250,7 +263,7 @@ export class FlightDeckComponent extends BaseComponent {
     // Zones on the log scale, from ⅛× to 8×.
     const at = (r: number) => ratioScale(r).position * 100;
     const edges = [0, at(0.9), at(1.1), at(2), 100];
-    this.querySelectorAll<HTMLElement>('.ratio-zones span').forEach(
+    this.querySelectorAll<HTMLElement>('.ratio .ratio-zones span').forEach(
       (span, i) => (span.style.flex = `${edges[i + 1] - edges[i]} 0 0`)
     );
     this.querySelector('[data-ratio-ticks]')!.replaceChildren(
@@ -281,6 +294,111 @@ export class FlightDeckComponent extends BaseComponent {
     );
     this.querySelector('[data-ratio-history]')!.replaceChildren(
       ...ratioHistory(doomLoop.history)
+    );
+  }
+
+  private drawFinancial(data: DeckData, fin: FinancialDoomLoop | null) {
+    const card = this.querySelector<HTMLElement>(
+      '[data-kpi="Financial doom loop"]'
+    )!;
+    card.hidden = fin === null;
+    if (!fin) return;
+
+    const { velocity } = data.snapshot;
+    const set = (selector: string, text: string) => {
+      card.querySelector(selector)!.textContent = text;
+    };
+    const formatRatio = (r: number | null) =>
+      r === null
+        ? '—'
+        : r === Infinity
+          ? '∞'
+          : r >= 10
+            ? String(Math.round(r))
+            : r.toFixed(1);
+    const shown = formatRatio(fin.ratio);
+    set('[data-fin-ratio]', shown);
+    if (velocity.days > 0) {
+      set(
+        '[data-fin-window]',
+        `Keep-pace cost per budget dollar, last ${formatSpan(velocity.days)}.`
+      );
+    }
+
+    const chip = card.querySelector<HTMLElement>('[data-fin-chip]')!;
+    const chips: Record<FinancialDoomLoop['level'], [Tone, string]> = {
+      within: ['good', 'Within budget'],
+      tight: ['warn', 'Near budget cap'],
+      over: ['warn', 'Over budget'],
+      doom: ['bad', 'Financial doom loop'],
+      unknown: ['neutral', 'No activity in the last week'],
+    };
+    const [tone, text] = chips[fin.level];
+    chip.dataset.tone = tone;
+    chip.replaceChildren(icon(tone), text);
+
+    // Log scale from ⅛× to 8× centred on 1× (budget cap).
+    const at = (r: number) => financialRatioScale(r).position * 100;
+    const edges = [0, at(0.75), at(1), at(2), 100];
+    card
+      .querySelectorAll<HTMLElement>('[data-fin-zones] span')
+      .forEach(
+        (span, i) => (span.style.flex = `${edges[i + 1] - edges[i]} 0 0`)
+      );
+    card.querySelector('[data-fin-ticks]')!.replaceChildren(
+      ...RATIO_TICKS.map((r, i) => {
+        const li = document.createElement('li');
+        li.style.left = `${at(r)}%`;
+        li.textContent = RATIO_LABELS[i];
+        return li;
+      })
+    );
+    const tag = card.querySelector<HTMLElement>('[data-fin-tag]')!;
+    tag.hidden = fin.ratio === null;
+    if (fin.ratio !== null) {
+      const place = financialRatioScale(fin.ratio);
+      tag.style.left = `${place.position * 100}%`;
+      tag.dataset.edge =
+        place.position > 0.9 ? 'end' : place.position < 0.1 ? 'start' : '';
+      tag.textContent = `${shown}×${place.clipped && fin.ratio > 1 ? ' ▸' : ''}`;
+    }
+
+    const pools: HTMLElement[] = [];
+    const poolRow = (
+      kind: 'human' | 'agent',
+      label: string,
+      pool: FinancialDoomLoop['human']
+    ) => {
+      if (pool.budget === null) return;
+      const li = document.createElement('li');
+      const left = document.createElement('span');
+      const glyph = document.createElement('span');
+      glyph.className = `glyph ${kind}`;
+      glyph.setAttribute('aria-hidden', 'true');
+      left.append(
+        glyph,
+        `${label}: ${formatMoney(pool.monthlyToKeepPace, fin.currency)} / ${formatMoney(pool.budget, fin.currency)}`
+      );
+      const right = document.createElement('span');
+      right.className = 'fin-pool-ratio tabular';
+      if (pool.ratio !== null && pool.ratio > 2) right.dataset.tone = 'bad';
+      else if (pool.ratio !== null && pool.ratio >= 0.75)
+        right.dataset.tone = 'warn';
+      right.textContent = `${formatRatio(pool.ratio)}×`;
+      li.append(left, right);
+      pools.push(li);
+    };
+    poolRow('human', 'People', fin.human);
+    poolRow('agent', 'Agents', fin.agentic);
+    card.querySelector('[data-fin-pools]')!.replaceChildren(...pools);
+
+    const growth =
+      fin.dailyLiabilityGrowth > 0
+        ? ` (+${formatMoney(fin.dailyLiabilityGrowth, fin.currency)}/day)`
+        : '';
+    set(
+      '[data-fin-text]',
+      `Spending ${formatMoney(fin.monthlySpendNow, fin.currency)}/mo now; keeping pace takes ${formatMoney(fin.monthlyToKeepPace, fin.currency)}/mo. Open backlog liability: ${formatMoney(fin.backlogLiability, fin.currency)}${growth}.`
     );
   }
 

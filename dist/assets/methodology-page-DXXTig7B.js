@@ -1,4 +1,4 @@
-import{n as e,r as t,t as n,u as r}from"./index-UlpsK3dC.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
+import{d as e,n as t,r as n,t as r}from"./index-CIMQL_Wd.js";import{s as i}from"./metrics-DrWwOoaN.js";var a=`<main class="doc">
   <p class="eyebrow">Methodology</p>
   <h1>How the numbers are calculated</h1>
   <section class="why" data-why hidden>
@@ -341,6 +341,17 @@ import{n as e,r as t,t as n,u as r}from"./index-UlpsK3dC.js";import{s as i}from"
         </dd>
       </div>
       <div>
+        <dt>Keep-pace cost vs budget</dt>
+        <dd>
+          When prices and monthly budgets are set, the monthly cost to keep pace
+          with new arrivals divided by each monthly budget (people and agents
+          separately, driven by the higher ratio). Below 0.75× is within budget;
+          above 1× keeping pace exceeds the budget; above 2× cost pressure runs
+          away. Also shows open backlog liability: open issues times the blended
+          cost per issue.
+        </dd>
+      </div>
+      <div>
         <dt>Closures with a linked fix</dt>
         <dd>
           The share of closed issues whose closure references a fix (see "How
@@ -561,4 +572,4 @@ import{n as e,r as t,t as n,u as r}from"./index-UlpsK3dC.js";import{s as i}from"
 :host .why p + p {
   margin-top: 0.75rem;
 }
-`,s=class extends r{static tagName=`methodology-page`;constructor(){super(a,o)}init(){this.querySelector(`[data-csv-link]`).href=n,this.querySelector(`[data-project-link]`).href=e,t().then(e=>{let t=this.querySelector(`[data-tracked-link]`);if(t.href=e.issuesUrl||e.repositoryUrl,t.textContent=e.repository,this.querySelectorAll(`[data-queue-only]`).forEach(t=>t.hidden=!e.queue),e.queue){let t=(e,t)=>{this.querySelector(e).textContent=t};t(`[data-queue-repository]`,e.queue.repository),t(`[data-queue-open]`,e.queue.openDir),t(`[data-queue-resolved]`,e.queue.resolvedDir)}for(let[t,n]of Object.entries(e.limits)){let e=this.querySelector(`[data-limit="${t}"]`);e&&(e.textContent=String(n))}let n=this.querySelector(`[data-why]`);if(n.hidden=!e.why,e.why){this.querySelector(`[data-why-text]`).textContent=e.why.text;let t=this.querySelector(`[data-why-source]`);t.hidden=!e.why.url,this.querySelector(`[data-why-link]`).href=e.why.url}}),i().then(e=>{if(!e)return;let{description:t,runTimesUtc:n}=e.schedule;this.querySelector(`[data-schedule]`).textContent=n.length?`${t} (${n.join(`, `)} UTC)`:t})}};customElements.get(s.tagName)||customElements.define(s.tagName,s);export{s as MethodologyPageComponent};
+`,s=class extends e{static tagName=`methodology-page`;constructor(){super(a,o)}init(){this.querySelector(`[data-csv-link]`).href=r,this.querySelector(`[data-project-link]`).href=t,n().then(e=>{let t=this.querySelector(`[data-tracked-link]`);if(t.href=e.issuesUrl||e.repositoryUrl,t.textContent=e.repository,this.querySelectorAll(`[data-queue-only]`).forEach(t=>t.hidden=!e.queue),e.queue){let t=(e,t)=>{this.querySelector(e).textContent=t};t(`[data-queue-repository]`,e.queue.repository),t(`[data-queue-open]`,e.queue.openDir),t(`[data-queue-resolved]`,e.queue.resolvedDir)}for(let[t,n]of Object.entries(e.limits)){let e=this.querySelector(`[data-limit="${t}"]`);e&&(e.textContent=String(n))}let n=this.querySelector(`[data-why]`);if(n.hidden=!e.why,e.why){this.querySelector(`[data-why-text]`).textContent=e.why.text;let t=this.querySelector(`[data-why-source]`);t.hidden=!e.why.url,this.querySelector(`[data-why-link]`).href=e.why.url}}),i().then(e=>{if(!e)return;let{description:t,runTimesUtc:n}=e.schedule;this.querySelector(`[data-schedule]`).textContent=n.length?`${t} (${n.join(`, `)} UTC)`:t})}};customElements.get(s.tagName)||customElements.define(s.tagName,s);export{s as MethodologyPageComponent};
