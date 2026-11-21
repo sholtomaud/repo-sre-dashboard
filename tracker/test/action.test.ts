@@ -564,3 +564,79 @@ test(
     }
   }
 );
+
+test('wait-for-artifact waits for the uploaded SRE_ARTIFACT_ID and settles for deploy-pages propagation', async () => {
+  let calls = 0;
+  const server = http.createServer((_req, res) => {
+    calls++;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    // Poll 1: only an older artifact exists; Poll 2: the uploaded artifact 200 appears.
+    const artifacts =
+      calls >= 2
+        ? [
+            { id: 100, name: 'github-pages' },
+            { id: 200, name: 'github-pages' },
+          ]
+        : [{ id: 100, name: 'github-pages' }];
+    res.end(JSON.stringify({ total_count: artifacts.length, artifacts }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  try {
+    const start = Date.now();
+    const { stdout } = await promisify(execFile)(
+      'bash',
+      [path.join(root, 'scripts', 'wait-for-artifact.sh')],
+      {
+        env: {
+          ...process.env,
+          GITHUB_API_URL: `http://127.0.0.1:${port}`,
+          GITHUB_REPOSITORY: 'owner/project',
+          GITHUB_RUN_ID: '12345',
+          SRE_TOKEN: 'test-token',
+          SRE_ARTIFACT_ID: '200',
+          SRE_ARTIFACT_WAIT_ATTEMPTS: '5',
+          SRE_ARTIFACT_WAIT_SECONDS: '0.05',
+          SRE_ARTIFACT_SETTLE_SECONDS: '0.25',
+        },
+        encoding: 'utf8',
+      }
+    );
+    const elapsedMs = Date.now() - start;
+    assert.equal(calls, 2);
+    assert.ok(
+      elapsedMs >= 200,
+      `expected settle delay >= 200ms after REST visibility, got ${elapsedMs}ms`
+    );
+    assert.match(stdout, /settl/i);
+  } finally {
+    server.close();
+  }
+});
+
+test('action.yml passes uploaded artifact_id to wait-for-artifact and retries deploy-pages on failure', () => {
+  const actionYml = fs.readFileSync(path.join(root, 'action.yml'), 'utf8');
+  assert.match(
+    actionYml,
+    /id:\s*upload[\s\S]*?uses:\s*actions\/upload-pages-artifact@[0-9a-f]{40}\s+#\s+v\d/
+  );
+  assert.match(
+    actionYml,
+    /SRE_ARTIFACT_ID:\s*\$\{\{\s*steps\.upload\.outputs\.artifact_id\s*\}\}/
+  );
+  assert.match(
+    actionYml,
+    /id:\s*deploy\n\s+continue-on-error:\s*true\n\s+uses:\s*actions\/deploy-pages@[0-9a-f]{40}\s+#\s+v\d/
+  );
+  const retryMatch =
+    /name:\s*Retry deploy to GitHub Pages[\s\S]*?(?=\n\s+- name:|$)/.exec(
+      actionYml
+    );
+  assert.ok(retryMatch, 'expected a Retry deploy to GitHub Pages step');
+  assert.match(retryMatch[0], /steps\.deploy\.outcome == 'failure'/);
+  assert.match(
+    retryMatch[0],
+    /uses:\s*actions\/deploy-pages@[0-9a-f]{40}\s+#\s+v\d/
+  );
+  assert.doesNotMatch(retryMatch[0], /continue-on-error:\s*true/);
+});
