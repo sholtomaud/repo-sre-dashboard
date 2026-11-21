@@ -39,3 +39,9 @@ jobs:
         uses: ./
         with:
           audit-issues: true
+          agent-cost-per-issue: '1.50'
+          human-hourly-rate: '95'
+          human-hours-per-issue: '2'
+          monthly-human-budget: '5000'
+          monthly-agentic-budget: '50'
+          currency: USD

@@ -23,3 +23,4 @@ jobs:
           label incident     B60205 "The Action or the published dashboard is broken for users"
           label regression   D93F0B "Worked before, broken now"
           label dependencies 0366D6 "Dependency updates"
+          label agent-ready  7057FF "Approved by a maintainer for autonomous agent resolution"
