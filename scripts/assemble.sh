@@ -33,8 +33,8 @@ if [[ ! -e "$dir/404.html" ]] || grep -q "$marker" "$dir/404.html"; then
   { echo "$marker"; cat "$target/index.html"; } > "$dir/404.html"
 fi
 
-# A Pages deployment is the whole site: send its root to the dashboard.
-if [[ "${SRE_PUBLISH_TO:-pages}" != "branch" && -n "$path" ]]; then
+# A standalone Pages deployment is the whole site: send its root to the dashboard.
+if [[ "${SRE_PUBLISH_TO:-pages}" != "branch" && "${SRE_PUBLISH_TO:-pages}" != "branch-artifact" && -n "$path" ]]; then
   cat > "$dir/index.html" <<HTML
 <!doctype html>
 <html lang="en">
