@@ -1,4 +1,4 @@
-import{d as e}from"./index-CIMQL_Wd.js";import{i as t,n,t as r}from"./health-DxBEsnbe.js";import{o as i,t as a}from"./format-0i7eZnoE.js";var o=`<article class="card pulls">
+import{d as e}from"./index-HoY2h4ys.js";import{i as t,n,t as r}from"./health-DxBEsnbe.js";import{o as i,t as a}from"./format-0i7eZnoE.js";var o=`<article class="card pulls">
   <header class="pulls-head">
     <h2>Pull requests</h2>
     <p>

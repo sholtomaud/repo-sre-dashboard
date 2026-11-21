@@ -130,18 +130,20 @@ export function calibrateClasses(
 ): Record<IssueClass, QueueCalibration> {
   const total = totalHistory(classes);
   const tv = velocity(total, windowDays, asOf);
-  const totalExposure = exposure(total, tv.days);
+  const totalAgentResolved = Math.max(0, tv.agent * tv.days);
+  const totalHumanResolved = Math.max(0, tv.human * tv.days);
+  const totalResolved = totalAgentResolved + totalHumanResolved;
+  // An issue opened and closed on the same UTC day is invisible to midnight
+  // open snapshots; bound its unobserved intra-day exposure at half a day.
+  const totalExposure = Math.max(exposure(total, tv.days), totalResolved * 0.5);
   // The pooled rates per open issue per day, with a floor for a repository
   // that has resolved nothing yet.
   const pooledAgents =
-    totalExposure > 0 ? (tv.agent * tv.days) / totalExposure : 0;
+    totalExposure > 0 ? totalAgentResolved / totalExposure : 0;
   const pooledHumans =
-    totalExposure > 0 ? (tv.human * tv.days) / totalExposure : 0;
+    totalExposure > 0 ? totalHumanResolved / totalExposure : 0;
   const pooled = Math.max(pooledAgents + pooledHumans, 1e-3);
-  const agentMix =
-    pooledAgents + pooledHumans > 0
-      ? pooledAgents / (pooledAgents + pooledHumans)
-      : 0;
+  const agentMix = totalResolved > 0 ? totalAgentResolved / totalResolved : 0;
   const volatility = Math.min(
     MAX_VOLATILITY,
     Math.max(
@@ -161,7 +163,12 @@ export function calibrateClasses(
         ? 0
         : Math.max(0, agentOpened[agentOpened.length - 1] - agentOpened[from]);
     const filed = Math.max(0, v.arrivals * days);
-    const own = exposure(points, days);
+    const agentResolved = Math.max(0, v.agent * days);
+    const humanResolved = Math.max(0, v.human * days);
+    const own = Math.max(
+      exposure(points, days),
+      (agentResolved + humanResolved) * 0.5
+    );
     const prior = (share: number) => ({
       count: PRIOR_EVENTS * share,
       days: (PRIOR_EVENTS * share) / Math.max(pooled * share, 1e-9),
@@ -176,14 +183,14 @@ export function calibrateClasses(
       },
       arrivals: { count: Math.max(0, filed - agentFiled), days },
       agentArrivals: { count: agentFiled, days },
-      agents: { count: Math.max(0, v.agent * days), days },
-      humans: { count: Math.max(0, v.human * days), days },
+      agents: { count: agentResolved, days },
+      humans: { count: humanResolved, days },
       agentsPerOpen: {
-        count: Math.max(0, v.agent * days) + agentsPrior.count,
+        count: agentResolved + agentsPrior.count,
         days: own + agentsPrior.days,
       },
       humansPerOpen: {
-        count: Math.max(0, v.human * days) + humansPrior.count,
+        count: humanResolved + humansPrior.count,
         days: own + humansPrior.days,
       },
       volatility,
@@ -295,6 +302,7 @@ export interface Outlook {
     cost: Record<Budget, Doom | null> | null;
   };
   completion:
+    | { state: 'clear' }
     | { state: 'diverging' }
     | { state: 'beyond'; days: number }
     | { state: 'forecast'; p50: number; p85: number | null };
@@ -643,7 +651,10 @@ export async function buildOutlook(
           }
         : null,
     },
-    completion: completion(withAgents, v.arrivals >= v.agent + v.human),
+    completion:
+      (total[total.length - 1]?.open ?? 0) < 0.5
+        ? { state: 'clear' }
+        : completion(withAgents, v.arrivals >= v.agent + v.human),
     agents: {
       verdict: agentsVerdict(
         all,

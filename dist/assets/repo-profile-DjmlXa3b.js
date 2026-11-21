@@ -1,4 +1,4 @@
-import{d as e}from"./index-CIMQL_Wd.js";import{n as t,t as n}from"./format-0i7eZnoE.js";var r=`<article class="card profile">
+import{d as e}from"./index-HoY2h4ys.js";import{n as t,t as n}from"./format-0i7eZnoE.js";var r=`<article class="card profile">
   <header class="panel-head">
     <h2>Codebase</h2>
     <p data-description>What the repository is made of, and what guards it.</p>

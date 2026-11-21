@@ -1,4 +1,4 @@
-import{d as e}from"./index-CIMQL_Wd.js";import{i as t}from"./health-DxBEsnbe.js";import{o as n,t as r}from"./format-0i7eZnoE.js";import{r as i}from"./instruments-BcSGmNn_.js";var a=`<article class="card delivery">
+import{d as e}from"./index-HoY2h4ys.js";import{i as t}from"./health-DxBEsnbe.js";import{o as n,t as r}from"./format-0i7eZnoE.js";import{r as i}from"./instruments-Bfo8vMRX.js";var a=`<article class="card delivery">
   <header class="panel-head">
     <h2>Delivery</h2>
     <p>

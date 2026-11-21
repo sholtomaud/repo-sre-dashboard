@@ -1070,3 +1070,69 @@ test('the flight deck shows a financial doom loop when keep-pace cost exceeds bu
   await expect(card.locator('[data-fin-chip]')).toContainText('Within budget');
   await expect(budgetTile).toHaveAttribute('data-state', 'off');
 });
+
+test('zero-backlog fast-clearing repo fills crew bar and shows clear outlook', async ({
+  page,
+}) => {
+  const classes = ['security', 'bug', 'other'];
+  const header = [
+    'date',
+    'open',
+    'agent_closed',
+    'human_closed',
+    ...classes.flatMap((c) => [
+      `${c}_opened_by_agents`,
+      `${c}_opened_by_humans`,
+      `${c}_closed_by_agents`,
+      `${c}_closed_by_humans`,
+    ]),
+  ];
+  const rows = [header.join(',')];
+  for (let d = 0; d < 14; d++) {
+    const date = new Date(Date.UTC(2026, 9, 1 + d)).toISOString().slice(0, 10);
+    const closed = d >= 11 ? 25 : 24;
+    rows.push(
+      [date, 0, 0, closed, 0, 0, 0, 0, 0, 0, 0, 0, 0, closed, 0, closed].join(
+        ','
+      )
+    );
+  }
+  const zeroStatus = {
+    ...STATUS,
+    updated_at: '2026-10-14T23:59:59Z',
+    issues: { ...STATUS.issues, open: 0, open_labelled: 0 },
+    responses: {
+      awaiting_first_response: 0,
+      first_response: { count: 0, median_hours: null },
+      resolution: { count: 1, median_hours: 0.18 },
+    },
+  };
+  await withFixture(page, rows.join('\n'), 200, zeroStatus);
+  await page.goto('/');
+
+  // The fractional daily rate (1/7 ≈ 0.14/day) must still fill the full crew bar.
+  const barWidth = await page
+    .locator('.crew-row')
+    .first()
+    .locator('.crew-bar')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  const segWidth = await page
+    .locator('.crew-row')
+    .first()
+    .locator('.crew-bar .human')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  expect(segWidth).toBeGreaterThan(barWidth * 0.95);
+
+  // Answered dial with 0 open issues says "No open issues".
+  await expect(
+    page.locator('[data-kpi="Time to first response"]')
+  ).toContainText('No open issues');
+
+  // Project outlook stays manageable and shows Clear rather than Diverging.
+  const outlook = page.locator('outlook-panel [data-body]');
+  await expect(outlook).toBeVisible();
+  await expect(outlook.locator('[data-completion]')).toHaveText('Clear');
+  await expect(outlook.locator('[data-state-label]')).not.toHaveText(
+    'Likely to lose control'
+  );
+});
