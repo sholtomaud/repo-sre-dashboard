@@ -1486,3 +1486,52 @@ test('the agent-attribution audit check flags PR-only attribution when issues ha
   );
   assert.equal(healthy['agent-attribution'].status, 'pass');
 });
+
+test('agent-triage does not grant pull-requests: write to untrusted issues: opened runs', () => {
+  const ownWorkflow = fs.readFileSync(
+    path.join(import.meta.dirname, '../../.github/workflows/agent-triage.yml'),
+    'utf8'
+  );
+  const auditFix = audit({})['agentic-triage'].fixes[0].content;
+
+  const jobBlock = (text: string, name: string) => {
+    const lines = text.split('\n');
+    const start = lines.findIndex((l) => l === `  ${name}:`);
+    if (start === -1) return null;
+    const out: string[] = [];
+    for (let i = start + 1; i < lines.length; i++) {
+      if (/^  [a-z][\w-]*:/.test(lines[i]) || /^\S/.test(lines[i])) break;
+      out.push(lines[i]);
+    }
+    return out.join('\n');
+  };
+
+  for (const [label, text] of [
+    ['.github/workflows/agent-triage.yml', ownWorkflow],
+    ['audit agentic-triage fix', auditFix],
+  ]) {
+    const parsed = readWorkflow('.github/workflows/agent-triage.yml', text);
+    assert.equal(parsed.permissions, true, `${label} needs permissions block`);
+    assert.equal(parsed.unpinned, 0, `${label} must pin all actions`);
+    // Top-level permissions must be empty so untrusted triggers inherit nothing.
+    assert.match(
+      text,
+      /^permissions:\s*\{\}/m,
+      `${label} top-level permissions`
+    );
+    // Untrusted triage job runs only on issues and must NOT have pull-requests: write.
+    const triageBlock = jobBlock(text, 'triage');
+    assert.ok(triageBlock, `${label} should have a triage job`);
+    assert.match(triageBlock, /github\.event_name == 'issues'/);
+    assert.doesNotMatch(
+      triageBlock,
+      /pull-requests:\s*write/,
+      `${label} triage job must not request pull-requests: write`
+    );
+    // Collaborator-only respond job handles @claude comments with author_association guard.
+    const respondBlock = jobBlock(text, 'respond');
+    assert.ok(respondBlock, `${label} should have a respond job`);
+    assert.match(respondBlock, /github\.event_name == 'issue_comment'/);
+    assert.match(respondBlock, /author_association/);
+  }
+});
