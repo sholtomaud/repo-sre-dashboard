@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.3.0...v1.4.0) (2026-11-21)
+
+
+### Features
+
+* add secret-reachability checks to supply-chain audit ([1274d82](https://github.com/sholtomaud/repo-sre-dashboard/commit/1274d82d4f243ae36719a96ca7ff734e177b94f8))
+* add secret-reachability checks to supply-chain audit ([b5639e2](https://github.com/sholtomaud/repo-sre-dashboard/commit/b5639e2dc3810c3903924b4c8899f8c893095adc)), closes [#31](https://github.com/sholtomaud/repo-sre-dashboard/issues/31)
+
+
+### Bug Fixes
+
+* calibrate same-day resolutions, clear empty backlog, and normalize crew bar ([e0d9ae9](https://github.com/sholtomaud/repo-sre-dashboard/commit/e0d9ae9db9787564dbdaced9623bdc7d09511ffb))
+* calibrate same-day resolutions, clear empty backlog, and normalize crew bar ([5baf5bc](https://github.com/sholtomaud/repo-sre-dashboard/commit/5baf5bc235253b34f5a7d17ef7620959e4708be4))
+* replace dynamic RegExp in workflow parser with startsWith checks ([8d92e5e](https://github.com/sholtomaud/repo-sre-dashboard/commit/8d92e5e2414f031f89763566d2089358c806c36d))
+* wait for Pages artifact before deploy and support two-job Pages publishing ([10d4018](https://github.com/sholtomaud/repo-sre-dashboard/commit/10d40182f1abf5cf4ff0cae2c220f9c2e01bb64b))
+* wait for Pages artifact before deploy and support two-job Pages publishing ([c719711](https://github.com/sholtomaud/repo-sre-dashboard/commit/c719711490ef7a2483ee2c5a4a4a2e796a1efa95))
+
 ## [1.3.0](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.2.2...v1.3.0) (2026-11-21)
 
 
