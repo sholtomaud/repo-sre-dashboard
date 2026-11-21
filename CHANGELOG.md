@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.2.2...v1.3.0) (2026-11-21)
+
+
+### Features
+
+* add financial doom loop instrument and budget annunciator ([eda369f](https://github.com/sholtomaud/repo-sre-dashboard/commit/eda369ff66674def4016f4f2e97f873d9c7e7b24))
+* add guarded autonomous issue-resolution workflow and circuit breaker ([6ce1a89](https://github.com/sholtomaud/repo-sre-dashboard/commit/6ce1a897c8e107b9cb0d570ffa8dd1931169defc))
+
+
+### Bug Fixes
+
+* enforce least privilege on untrusted issue triage runs ([053fe03](https://github.com/sholtomaud/repo-sre-dashboard/commit/053fe0303e49d3d78bd44ff07e32450ab9d1bbf9))
+
 ## [1.2.2](https://github.com/sholtomaud/repo-sre-dashboard/compare/v1.2.1...v1.2.2) (2026-11-19)
 
 
