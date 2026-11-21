@@ -102,6 +102,41 @@ export interface WorkflowFile {
   unpinned: number;
   /** Declares its token permissions. */
   permissions: boolean;
+  /** Jobs that both pass repository secrets (other than GITHUB_TOKEN) and install/run packages. */
+  secretPackageJobs?: string[];
+  /** Jobs that run a coding agent with an API key and also grant a shell or install/run packages. */
+  agentCodeJobs?: string[];
+  /** Non-pushing jobs that run actions/checkout without persist-credentials: false. */
+  persistedCheckoutJobs?: string[];
+  /** Whether any job runs a coding agent with a repository secret/API key. */
+  hasAgentSecretJob?: boolean;
+  /** Whether any job uses actions/checkout. */
+  hasCheckout?: boolean;
+}
+
+/** Splits a workflow's `jobs:` section into `{ id, lines }` blocks. */
+function parseWorkflowJobs(text: string): { id: string; lines: string[] }[] {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^jobs:\s*(#.*)?$/.test(l));
+  if (start < 0) return [];
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^\S/.test(line) && !line.startsWith('#')) break;
+    body.push(line);
+  }
+  const indent = /^(\s+)\S/.exec(
+    body.find((l) => l.trim() && !l.trim().startsWith('#')) ?? ''
+  )?.[1];
+  if (!indent) return [];
+  const jobs: { id: string; lines: string[] }[] = [];
+  for (const line of body) {
+    const id = line.startsWith(indent)
+      ? /^([A-Za-z_][\w-]*):\s*(#.*)?$/.exec(line.slice(indent.length))?.[1]
+      : undefined;
+    if (id) jobs.push({ id, lines: [] });
+    else jobs.at(-1)?.lines.push(line);
+  }
+  return jobs;
 }
 
 /**
@@ -109,42 +144,251 @@ export interface WorkflowFile {
  * A job named with an expression, or run over a matrix, reports under names
  * only known at run time, so it is counted rather than guessed.
  */
-function testJobs(text: string): {
+function testJobs(jobs: { id: string; lines: string[] }[]): {
   testJobs: string[];
   unresolvedTestJobs: number;
 } {
-  const lines = text.split('\n');
-  const start = lines.findIndex((l) => /^jobs:\s*(#.*)?$/.test(l));
   const found = { testJobs: [] as string[], unresolvedTestJobs: 0 };
-  if (start < 0) return found;
-  const body: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^\S/.test(line) && !line.startsWith('#')) break;
-    body.push(line);
-  }
-  const indent = /^(\s+)\S/.exec(body.find((l) => l.trim()) ?? '')?.[1];
-  if (!indent) return found;
-  const jobStart = new RegExp(`^${indent}([A-Za-z_][\\w-]*):\\s*(#.*)?$`);
-  const jobs: { id: string; lines: string[] }[] = [];
-  for (const line of body) {
-    const id = jobStart.exec(line)?.[1];
-    if (id) jobs.push({ id, lines: [] });
-    else jobs.at(-1)?.lines.push(line);
-  }
   for (const job of jobs) {
     const text = job.lines.join('\n');
     if (!TEST_COMMAND.test(text)) continue;
     const own = /^(\s+)\S/.exec(job.lines.find((l) => l.trim()) ?? '')?.[1];
-    const name = own
-      ? new RegExp(`^${own}name:\\s*(.+?)\\s*$`, 'm')
-          .exec(text)?.[1]
-          ?.replace(/^(['"])(.*)\1$/, '$2')
-      : undefined;
-    const matrix = own ? new RegExp(`^${own}strategy:`, 'm').test(text) : false;
+    let name: string | undefined;
+    let matrix = false;
+    if (own) {
+      for (const line of job.lines) {
+        if (!line.startsWith(own)) continue;
+        const rest = line.slice(own.length);
+        if (name === undefined) {
+          const match = /^name:\s*(.+?)\s*$/.exec(rest);
+          if (match) name = match[1].replace(/^(['"])(.*)\1$/, '$2');
+        }
+        if (/^strategy:/.test(rest)) matrix = true;
+      }
+    }
     if (matrix || name?.includes('${{')) found.unresolvedTestJobs++;
     else found.testJobs.push(name ?? job.id);
   }
   return found;
+}
+
+const PACKAGE_COMMAND =
+  /\b(npm\s+(ci|i|install|exec|run|test)|npx\b|pnpm\s+(i|install|dlx|exec|run|test)|yarn(?:\s+(install|add|dlx|run|test))?(?:\s|$)|bun\s+(i|install|x|run|test)|pip3?\s+install|uv\s+(pip\s+install|sync|run)|poetry\s+(install|run)|cargo\s+(build|test|run|install)|go\s+(get|install|test|run|build)|bundle\s+(install|exec)|composer\s+install|mvn\b|gradle\b|\.\/gradlew\b)\b/i;
+
+const CODING_AGENT_ACTION =
+  /^(anthropics\/claude-code-action|github\/copilot-|openai\/codex-action|google-github-actions\/run-gemini-cli)/i;
+
+const PUSHING_ACTION =
+  /^(anthropics\/claude-code-action|peter-evans\/create-pull-request|googleapis\/release-please-action|stefanzweifel\/git-auto-commit-action|peaceiris\/actions-gh-pages|jamesives\/github-pages-deploy-action|sholtomaud\/repo-sre-dashboard)/i;
+
+const STEP_KEY =
+  /^\s*(?:name|id|if|uses|run|with|env|shell|working-directory|continue-on-error|timeout-minutes):/;
+
+/** Extracts shell commands from every `run:` step in a job. */
+function extractJobRunCommands(jobLines: string[]): string {
+  const commands: string[] = [];
+  for (let i = 0; i < jobLines.length; i++) {
+    const line = jobLines[i];
+    if (/^\s*#/.test(line)) continue;
+    const match = /^(\s*)(-\s+)?run:\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const baseIndent = match[1].length;
+    const runCol = baseIndent + (match[2]?.length ?? 0);
+    const rest = match[3].trim();
+    if (/^[|>][+-]?\d*(?:\s*#.*)?$/.test(rest)) {
+      for (let j = i + 1; j < jobLines.length; j++) {
+        const next = jobLines[j];
+        if (!next.trim()) continue;
+        const nextIndent = /^(\s*)/.exec(next)![1].length;
+        if (nextIndent <= baseIndent) break;
+        if (nextIndent <= runCol && STEP_KEY.test(next)) break;
+        commands.push(next);
+        i = j;
+      }
+    } else if (rest) {
+      commands.push(rest);
+    }
+  }
+  return commands.join('\n');
+}
+
+/** Splits a job's `steps:` block into individual step line arrays. */
+function extractJobSteps(jobLines: string[]): string[][] {
+  const start = jobLines.findIndex((l) => /^\s+steps:\s*(#.*)?$/.test(l));
+  if (start < 0) return [];
+  const stepsIndent = /^(\s+)/.exec(jobLines[start])![1].length;
+  const body: string[] = [];
+  for (const line of jobLines.slice(start + 1)) {
+    if (line.trim() && !line.trim().startsWith('#')) {
+      const indent = /^(\s*)/.exec(line)![1].length;
+      if (indent <= stepsIndent) break;
+    }
+    body.push(line);
+  }
+  const itemIndent = /^(\s*)-\s/.exec(
+    body.find((l) => /^\s*-\s/.test(l)) ?? ''
+  )?.[1];
+  if (itemIndent === undefined) return [];
+  const steps: string[][] = [];
+  for (const line of body) {
+    if (
+      line.startsWith(itemIndent) &&
+      /^-\s/.test(line.slice(itemIndent.length))
+    ) {
+      steps.push([line]);
+    } else {
+      steps.at(-1)?.push(line);
+    }
+  }
+  return steps;
+}
+
+/** Whether a permissions block (workflow- or job-level) grants `contents: write`. */
+function grantsContentsWrite(
+  lines: string[],
+  keyIndent: number
+): boolean | null {
+  const start = lines.findIndex((l) => {
+    const match = /^(\s*)permissions:\s*(.*)$/.exec(l);
+    return match !== null && match[1].length === keyIndent;
+  });
+  if (start < 0) return null;
+  const inline = /^\s*permissions:\s*(.+?)\s*(?:#.*)?$/.exec(lines[start])?.[1];
+  if (inline) {
+    if (/^write-all$/i.test(inline)) return true;
+    if (/^(read-all|\{\})$/i.test(inline)) return false;
+  }
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const indent = /^(\s*)/.exec(line)![1].length;
+    if (indent <= keyIndent) break;
+    const contents = /^\s*contents:\s*(\S+)/.exec(line);
+    if (contents) return /^write$/i.test(contents[1]);
+  }
+  return false;
+}
+
+/** Whether a coding-agent step explicitly grants shell/Bash execution. */
+function agentStepGrantsShell(stepLines: string[]): boolean {
+  const uncommented = stepLines.filter((l) => !/^\s*#/.test(l)).join('\n');
+  if (
+    /--dangerously-skip-permissions\b|\bbypassPermissions\b|\bdanger-full-access\b|--full-auto\b|--yolo\b|\ballow_shell:\s*true\b/i.test(
+      uncommented
+    )
+  ) {
+    return true;
+  }
+  if (/(?:--allowedTools|allowed_tools)\b[^\n]*\bBash\b/i.test(uncommented)) {
+    return true;
+  }
+  // Multi-line `allowed_tools:` block containing `Bash`.
+  for (let i = 0; i < stepLines.length; i++) {
+    const match = /^(\s*)allowed_tools:\s*(.*)$/.exec(stepLines[i]);
+    if (!match) continue;
+    const indent = match[1].length;
+    if (/\bBash\b/i.test(match[2])) return true;
+    for (let j = i + 1; j < stepLines.length; j++) {
+      const next = stepLines[j];
+      if (!next.trim() || /^\s*#/.test(next)) continue;
+      if (/^(\s*)/.exec(next)![1].length <= indent) break;
+      if (/\bBash\b/i.test(next)) return true;
+    }
+  }
+  return false;
+}
+
+function analyzeWorkflowSecurity(
+  text: string,
+  jobs: { id: string; lines: string[] }[]
+): Pick<
+  WorkflowFile,
+  | 'secretPackageJobs'
+  | 'agentCodeJobs'
+  | 'persistedCheckoutJobs'
+  | 'hasAgentSecretJob'
+  | 'hasCheckout'
+> {
+  const topLines = text.split(/\r?\n/);
+  const topContentsWrite = grantsContentsWrite(topLines, 0);
+
+  const secretPackageJobs: string[] = [];
+  const agentCodeJobs: string[] = [];
+  const persistedCheckoutJobs: string[] = [];
+  let hasAgentSecretJob = false;
+  let hasCheckout = false;
+
+  for (const job of jobs) {
+    const jobText = job.lines.filter((l) => !/^\s*#/.test(l)).join('\n');
+    const runCommands = extractJobRunCommands(job.lines);
+    const steps = extractJobSteps(job.lines);
+    const stepUses = steps.map(
+      (s) =>
+        /^\s*(?:-\s+)?uses:\s*['"]?([^@\s'"]+)/m
+          .exec(s.join('\n'))?.[1]
+          ?.toLowerCase() ?? null
+    );
+
+    const hasNonGithubSecret =
+      /\bsecrets\.(?!GITHUB_TOKEN\b)[A-Za-z_][A-Za-z0-9_]*\b/.test(jobText) ||
+      /^\s*secrets:\s*inherit\b/m.test(jobText);
+    const runsPackages = PACKAGE_COMMAND.test(runCommands);
+
+    if (hasNonGithubSecret && runsPackages) {
+      secretPackageJobs.push(job.id);
+    }
+
+    const agentStepIndices = stepUses
+      .map((u, idx) => (u && CODING_AGENT_ACTION.test(u) ? idx : -1))
+      .filter((idx) => idx >= 0);
+    if (agentStepIndices.length > 0 && hasNonGithubSecret) {
+      hasAgentSecretJob = true;
+      const grantsShell = agentStepIndices.some((idx) =>
+        agentStepGrantsShell(steps[idx])
+      );
+      if (runsPackages || grantsShell) {
+        agentCodeJobs.push(job.id);
+      }
+    }
+
+    const jobIndent =
+      /^(\s+)\S/.exec(
+        job.lines.find((l) => l.trim() && !l.trim().startsWith('#')) ?? ''
+      )?.[1].length ?? 4;
+    const jobContentsWrite = grantsContentsWrite(job.lines, jobIndent);
+    const effectiveContentsWrite =
+      jobContentsWrite ?? topContentsWrite ?? false;
+
+    const jobPushes =
+      /\bgit\s+push\b|\bpublish\.sh\b/i.test(runCommands) ||
+      (effectiveContentsWrite &&
+        (/\bgit\s+commit\b/i.test(runCommands) ||
+          stepUses.some((u) => u !== null && PUSHING_ACTION.test(u))));
+
+    let jobHasPersistedCheckout = false;
+    for (let i = 0; i < steps.length; i++) {
+      if (stepUses[i] !== 'actions/checkout') continue;
+      hasCheckout = true;
+      const stepUncommented = steps[i]
+        .filter((l) => !/^\s*#/.test(l))
+        .join('\n');
+      const disablesPersist =
+        /^\s*persist-credentials:\s*false(?:\s|$|#)/im.test(stepUncommented);
+      if (!disablesPersist && !jobPushes) {
+        jobHasPersistedCheckout = true;
+      }
+    }
+    if (jobHasPersistedCheckout) {
+      persistedCheckoutJobs.push(job.id);
+    }
+  }
+
+  return {
+    secretPackageJobs,
+    agentCodeJobs,
+    persistedCheckoutJobs,
+    hasAgentSecretJob,
+    hasCheckout,
+  };
 }
 
 /** What a workflow file triggers on and whether it runs tests. */
@@ -153,6 +397,7 @@ export function readWorkflow(path: string, text: string): WorkflowFile {
   // The trigger block: `on:` to the next top-level key.
   const on =
     /^(?:on|'on'|"on"|true):(.*(?:\n(?:[ \t].*|\s*))*)/m.exec(text)?.[1] ?? '';
+  const jobs = parseWorkflowJobs(text);
   return {
     path,
     name,
@@ -161,7 +406,7 @@ export function readWorkflow(path: string, text: string): WorkflowFile {
     ),
     onPush: /\bpush\b/.test(on),
     runsTests: TEST_COMMAND.test(text),
-    ...testJobs(text),
+    ...testJobs(jobs),
     uses: [
       ...new Set(
         [
@@ -176,7 +421,51 @@ export function readWorkflow(path: string, text: string): WorkflowFile {
     ].filter((m) => !m[1].startsWith('./') && !/^[0-9a-f]{40}$/.test(m[2]))
       .length,
     permissions: /^permissions:/m.test(text),
+    ...analyzeWorkflowSecurity(text, jobs),
   };
+}
+
+/**
+ * Whether a package manager config file disables lifecycle install scripts:
+ * `.npmrc` (`ignore-scripts=true`), `.yarnrc.yml` (`enableScripts: false`),
+ * or `pnpm-workspace.yaml` (`ignoreScripts: true`).
+ */
+export function hasInstallScriptsDisabled(
+  filePath: string,
+  text: string
+): boolean {
+  const uncommented = text
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*[#;]/.test(l))
+    .join('\n');
+  if (/\.yarnrc\.ya?ml$/i.test(filePath)) {
+    return /^\s*enableScripts\s*:\s*false(?:\s|$|#)/im.test(uncommented);
+  }
+  if (/pnpm-workspace\.ya?ml$/i.test(filePath)) {
+    return /^\s*ignoreScripts\s*:\s*true(?:\s|$|#)/im.test(uncommented);
+  }
+  return /^\s*ignore-scripts\s*=\s*true(?:\s|$|[#;])/im.test(uncommented);
+}
+
+/**
+ * Sorted, unique package names in an npm `package-lock.json` whose entries
+ * declare `hasInstallScript: true`.
+ */
+export function lockfileInstallScripts(text: string): string[] {
+  try {
+    const parsed = JSON.parse(text) as {
+      packages?: Record<string, { hasInstallScript?: boolean }>;
+    };
+    const names = new Set<string>();
+    for (const [key, entry] of Object.entries(parsed.packages ?? {})) {
+      if (!key || !entry?.hasInstallScript) continue;
+      const name = key.replace(/^.*node_modules\//, '');
+      if (name) names.add(name);
+    }
+    return [...names].sort();
+  } catch {
+    return [];
+  }
 }
 
 function hasDependabotCooldownBlock(block: string): boolean {
@@ -296,6 +585,10 @@ export interface Profile {
   keyFiles: Record<KeyFile, string | null>;
   /** Whether the dependency update config sets a release cooldown (null if absent or unreadable). */
   dependencyCooldown: boolean | null;
+  /** Whether npm/yarn/pnpm install scripts are disabled (null if not an npm repo or unreadable). */
+  installScriptsDisabled?: boolean | null;
+  /** Lockfile packages that declare install scripts (hasInstallScript). */
+  installScriptPackages?: string[];
   lockfiles: string[];
   /** Package ecosystems found, one entry per folder with a manifest. */
   ecosystems: { name: string; directory: string }[];
@@ -490,6 +783,93 @@ export async function readProfile(
     )
   ).filter((d): d is { path: string; text: string } => d !== null);
 
+  const lockfiles = own.filter((p) => LOCKFILE.test(p));
+  // Every folder with a manifest, shallowest first, up to 10 per
+  // ecosystem: Dependabot needs an entry for each.
+  const ecosystems = ECOSYSTEMS.flatMap(([name, pattern]) =>
+    [
+      ...new Set(
+        own
+          .filter(
+            (p) =>
+              pattern.test(p) &&
+              !/(^|\/)(fixtures?|examples?|samples?)\//i.test(p)
+          )
+          .map((p) => '/' + p.split('/').slice(0, -1).join('/'))
+      ),
+    ]
+      .sort(
+        (a, b) =>
+          a.split('/').length - b.split('/').length || a.localeCompare(b)
+      )
+      .slice(0, 10)
+      .map((directory) => ({ name, directory }))
+  );
+
+  const hasNpm = ecosystems.some((e) => e.name === 'npm');
+  const scriptConfigPaths = hasNpm
+    ? paths
+        .filter((p) =>
+          /(^|\/)(\.npmrc|\.yarnrc\.ya?ml|pnpm-workspace\.ya?ml)$/i.test(p)
+        )
+        .sort((a, b) => a.split('/').length - b.split('/').length)
+        .slice(0, 5)
+    : [];
+  const installScriptsChecks = await Promise.all(
+    scriptConfigPaths.map((configPath) =>
+      guarded(
+        denied,
+        'package manager config',
+        'contents: read',
+        null,
+        async () => {
+          const file = await client.rest<{ content?: string }>(
+            `${base}/contents/${configPath}?ref=${encodeURIComponent(branch)}`
+          );
+          return file?.content
+            ? hasInstallScriptsDisabled(
+                configPath,
+                Buffer.from(file.content, 'base64').toString('utf8')
+              )
+            : null;
+        }
+      )
+    )
+  );
+  const installScriptsDisabled = !hasNpm
+    ? null
+    : installScriptsChecks.some((v) => v === true);
+
+  const npmLockPaths = hasNpm
+    ? lockfiles.filter((p) => /(^|\/)package-lock\.json$/i.test(p)).slice(0, 5)
+    : [];
+  const installScriptPackages = [
+    ...new Set(
+      (
+        await Promise.all(
+          npmLockPaths.map((lockPath) =>
+            guarded(
+              denied,
+              'lockfile',
+              'contents: read',
+              [] as string[],
+              async () => {
+                const file = await client.rest<{ content?: string }>(
+                  `${base}/contents/${lockPath}?ref=${encodeURIComponent(branch)}`
+                );
+                return file?.content
+                  ? lockfileInstallScripts(
+                      Buffer.from(file.content, 'base64').toString('utf8')
+                    )
+                  : [];
+              }
+            )
+          )
+        )
+      ).flat()
+    ),
+  ].sort();
+
   const dependencyCooldown = keyFiles.dependencyUpdates
     ? await guarded(
         denied,
@@ -618,28 +998,10 @@ export async function readProfile(
     truncated: tree?.truncated ?? false,
     keyFiles,
     dependencyCooldown,
-    lockfiles: own.filter((p) => LOCKFILE.test(p)),
-    // Every folder with a manifest, shallowest first, up to 10 per
-    // ecosystem: Dependabot needs an entry for each.
-    ecosystems: ECOSYSTEMS.flatMap(([name, pattern]) =>
-      [
-        ...new Set(
-          own
-            .filter(
-              (p) =>
-                pattern.test(p) &&
-                !/(^|\/)(fixtures?|examples?|samples?)\//i.test(p)
-            )
-            .map((p) => '/' + p.split('/').slice(0, -1).join('/'))
-        ),
-      ]
-        .sort(
-          (a, b) =>
-            a.split('/').length - b.split('/').length || a.localeCompare(b)
-        )
-        .slice(0, 10)
-        .map((directory) => ({ name, directory }))
-    ),
+    installScriptsDisabled,
+    installScriptPackages,
+    lockfiles,
+    ecosystems,
     issueTemplates: templates.length ? templates : null,
     workflows,
     branch: {
