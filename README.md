@@ -1,5 +1,10 @@
 # Repo SRE Dashboard
 
+> [!IMPORTANT]
+> **This repository is archived and superseded by [`sholtomaud/agentic-uplift`](https://github.com/sholtomaud/agentic-uplift).**
+>
+> Active development, open feature requests, and new audit/observability work have moved to `sholtomaud/agentic-uplift` (a zero-dependency control plane combining SRE observability, cryptographic `proof-lock` tamper protection, guarded autonomous resolution, agent-first JSON queries, and a buildless Web Components cockpit). Existing workflows pinned to `sholtomaud/repo-sre-dashboard@v1` or a commit SHA will continue to run, though no further updates will be published here.
+
 A GitHub Action that publishes a reliability dashboard for your repository to GitHub Pages, at `https://<owner>.github.io/<repository>/dashboard/`, and keeps it up to date.
 
 It shows, on one page:
